@@ -32,6 +32,14 @@ workflows:
         script: flutter build apk --debug --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
     artifacts:
       - mobile_app/build/**/outputs/**/*.apk
+    publishing:
+      # Codemagic emails a download link for the APK to this address when the build succeeds.
+      email:
+        recipients:
+          - s.ansari.it@gmail.com
+        notify:
+          success: true
+          failure: false
 
   android-release:
     name: Android release AAB (manual / tags)
