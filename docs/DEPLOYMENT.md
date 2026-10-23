@@ -36,3 +36,6 @@ Set Codemagic variable groups as described at the top of `codemagic.yaml`. `API_
 
 ## 6. Firebase push notifications (not done)
 In-app notifications work. Push (FCM) needs a Firebase project, `google-services.json`, a device-token endpoint and a sender; not built yet.
+
+## Vercel project "cctv-api" (already created)
+Root Directory `backend`, auto-deploys on every push to `main`. The `vercel-build` script runs `db:migrate` and `db:seed` (both idempotent) before `next build`, so the database is prepared on every deploy. Add a Neon Postgres database from the project's Storage tab; it injects `DATABASE_URL` automatically.

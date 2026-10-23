@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Backend API and admin panel for the CCTV Secret & Entrepreneurship app",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,7 +14,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate-cli.ts",
-    "db:seed": "tsx src/db/seed-cli.ts"
+    "db:seed": "tsx src/db/seed-cli.ts",
+    "vercel-build": "tsx src/db/migrate-cli.ts && tsx src/db/seed-cli.ts && next build"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.3.15",
