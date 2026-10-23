@@ -31,7 +31,10 @@ workflows:
       - name: Build debug APK
         script: flutter build apk --debug --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
     artifacts:
-      - mobile_app/build/**/outputs/**/*.apk
+      # Listed three ways because the base directory for patterns differs when working_directory is set.
+      - $CM_BUILD_DIR/mobile_app/build/app/outputs/flutter-apk/*.apk
+      - mobile_app/build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/flutter-apk/*.apk
     publishing:
       # Codemagic emails a download link for the APK to this address when the build succeeds.
       email:
@@ -78,6 +81,8 @@ workflows:
       - name: Sign with upload key
         script: bash scripts/sign_aab.sh
     artifacts:
-      - mobile_app/build/**/outputs/**/*.aab
+      - $CM_BUILD_DIR/mobile_app/build/app/outputs/bundle/release/*.aab
+      - mobile_app/build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/bundle/release/*.aab
     # Publishing to Google Play is intentionally NOT automated. Upload the AAB to an internal/closed
     # testing track by hand, and promote to production only with the owner's approval.
