@@ -39,6 +39,8 @@ PY
 # Set the application id in whichever Gradle DSL the template uses.
 for f in android/app/build.gradle android/app/build.gradle.kts; do
   [ -f "$f" ] || continue
-  sed -i -E "s/(applicationId\s*=?\s*)\"[^\"]*\"/\1\"${APP_ID}\"/; s/(namespace\s*=?\s*)\"[^\"]*\"/\1\"${APP_ID}\"/" "$f"
+  # -i.bak works on both GNU sed (Linux) and BSD sed (macOS builders); [[:space:]] is portable.
+  sed -i.bak -E "s/(applicationId[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/; s/(namespace[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/" "$f"
+  rm -f "$f.bak"
 done
 echo "Android project prepared for ${APP_ID}"
