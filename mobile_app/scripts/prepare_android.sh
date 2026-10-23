@@ -8,7 +8,12 @@ APP_ID="${APP_ID:-in.siliconcorporation.cctvsecret}"
 APP_LABEL="${APP_LABEL:-CCTV Secret}"
 
 if [ ! -d android ]; then
-  flutter create --org "${APP_ID%.*}" --project-name cctv_secret --platforms=android --overwrite .
+  # Generate the platform folder in a scratch directory and copy only android/ over, because
+  # `flutter create` into this folder would overwrite pubspec.yaml and lib/.
+  TMP="$(mktemp -d)"
+  flutter create --org "${APP_ID%.*}" --project-name "${APP_ID##*.}" --platforms=android "$TMP/scaffold"
+  cp -R "$TMP/scaffold/android" ./android
+  rm -rf "$TMP"
 fi
 
 MANIFEST=android/app/src/main/AndroidManifest.xml
