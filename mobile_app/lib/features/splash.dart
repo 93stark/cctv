@@ -28,10 +28,8 @@ class _SplashState extends ConsumerState<SplashScreen> {
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.videocam, size: 84, color: Color(0xFF5BB4FF)),
-            const SizedBox(height: 18),
-            const Text('CCTV Secret &\nEntrepreneurship', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, height: 1.15)),
-            const SizedBox(height: 26),
+            ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.asset('assets/logo.png', width: 220, height: 220)),
+            const SizedBox(height: 24),
             Text(hi, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
             Text(en, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF9FB2CC))),

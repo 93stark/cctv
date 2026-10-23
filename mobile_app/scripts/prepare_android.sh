@@ -48,4 +48,13 @@ for f in android/app/build.gradle android/app/build.gradle.kts; do
   sed -i.bak -E "s/(applicationId[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/; s/(namespace[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/" "$f"
   rm -f "$f.bak"
 done
+# App launcher icon (from the project logo). Remove any template adaptive icon so ours is used.
+if [ -d assets/icon/android ]; then
+  rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml
+  for d in assets/icon/android/mipmap-*; do
+    [ -d "$d" ] || continue
+    mkdir -p "android/app/src/main/res/$(basename "$d")"
+    cp "$d/ic_launcher.png" "android/app/src/main/res/$(basename "$d")/ic_launcher.png"
+  done
+fi
 echo "Android project prepared for ${APP_ID}"
