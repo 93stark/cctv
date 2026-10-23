@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import { adminPermissions, adminRoles, adminUsers, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
@@ -27,10 +27,10 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
         name: "Limited Support",
         pricePaise: 9900,
         isLifetime: false,
-        durationDays: 30,
+        durationDays: 1000,
         sortOrder: 1,
         benefits: [
-          "WhatsApp support for 30 days from purchase",
+          "WhatsApp support for 1000 days from purchase",
           "Replies within 24 working hours",
           "Questions about the book and CCTV learning",
         ],
@@ -52,6 +52,19 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       },
     ])
     .onConflictDoNothing({ target: supportPlans.code });
+
+  // Owner decision (Oct 2026): Limited Support is valid for 1000 days. Only touches rows still on the old 30-day default.
+  await db
+    .update(supportPlans)
+    .set({
+      durationDays: 1000,
+      benefits: [
+        "WhatsApp support for 1000 days from purchase",
+        "Replies within 24 working hours",
+        "Questions about the book and CCTV learning",
+      ],
+    })
+    .where(and(eq(supportPlans.code, "limited"), eq(supportPlans.durationDays, 30)));
 
   let adminCreated = false;
   const email = opts.adminEmail?.trim().toLowerCase();

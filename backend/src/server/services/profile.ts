@@ -19,8 +19,8 @@ const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\
 
 export const profileInput = z.object({
   fullName: z.string().transform(clean).pipe(z.string().min(2, "Enter your full name").max(80)),
-  location: z.string().transform(clean).pipe(z.string().min(3, "Enter your location").max(200)),
-  pinCode: z.string().trim().regex(/^[0-9]{6}$/, "PIN code must be 6 digits"),
+  location: z.string().transform(clean).pipe(z.string().min(3, "Enter your city").max(200)),
+  pinCode: z.string().trim().regex(/^[0-9]{4}$/, "PIN code must be 4 digits"),
   category: z.enum(CATEGORIES),
 });
 export type ProfileInput = z.infer<typeof profileInput>;

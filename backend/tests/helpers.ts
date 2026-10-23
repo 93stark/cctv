@@ -51,7 +51,7 @@ export async function loginUser(mobile: string) {
 
 export async function completeProfile(token: string) {
   const { PUT } = await import("@/app/api/v1/me/route");
-  return call(PUT, req("PUT", "/api/v1/me", { token, body: { fullName: "Test User", location: "Purulia, West Bengal", pinCode: "723101", category: "student" } }));
+  return call(PUT, req("PUT", "/api/v1/me", { token, body: { fullName: "Test User", location: "Purulia, West Bengal", pinCode: "7231", category: "student" } }));
 }
 
 export function signedWebhook(body: object) {

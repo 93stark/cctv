@@ -221,7 +221,7 @@ describe("settings, content, plans, memberships (owner)", () => {
     const { cookie } = await adminLogin();
     const s = await loginUser("+917999900004");
     const { PUT } = await import("@/app/api/v1/me/route");
-    await call(PUT, req("PUT", "/x", { token: s.accessToken, body: { fullName: "=HYPERLINK(\"http://evil\")", location: "Purulia WB", pinCode: "723101", category: "individual" } }));
+    await call(PUT, req("PUT", "/x", { token: s.accessToken, body: { fullName: "=HYPERLINK(\"http://evil\")", location: "Purulia WB", pinCode: "7231", category: "individual" } }));
     const csv = await call(users, adminReq("GET", "/api/admin/users?format=csv", cookie));
     expect(csv.status).toBe(200);
     expect(String(csv.data)).not.toMatch(/(^|,)"?=HYPERLINK/m);

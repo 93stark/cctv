@@ -59,7 +59,7 @@ describe("OTP auth", () => {
     expect(bad.status).toBe(400);
     expect((await completeProfile(s.accessToken)).status).toBe(200);
     const got = await call(me, req("GET", "/x", { token: s.accessToken }));
-    expect(got.data.user.profile.pinCode).toBe("723101");
+    expect(got.data.user.profile.pinCode).toBe("7231");
   });
 
   it("rotates refresh tokens and revokes the family on reuse", async () => {

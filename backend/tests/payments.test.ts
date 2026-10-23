@@ -115,15 +115,16 @@ describe("payments (mock provider)", () => {
     expect((await call(waLink, req("POST", "/x", { token: s.accessToken }))).status).toBe(403);
     const o = (await order(s.accessToken)).data.order;
     await pay(o);
-    // Not configured until the owner sets the number
-    const unconfigured = await call(waLink, req("POST", "/x", { token: s.accessToken }));
-    expect(unconfigured.status).toBeGreaterThanOrEqual(400);
-    const { cookie } = await adminLogin();
-    expect((await call(putSettings, adminReq("PUT", "/x", cookie, { whatsapp_number: "+917797493140" }))).status).toBe(200);
     const ok = await call(waLink, req("POST", "/x", { token: s.accessToken }));
     expect(ok.status).toBe(200);
     expect(ok.data.url).toContain("wa.me/917797493140");
     expect(ok.data.url).toContain(encodeURIComponent(ok.data.reference));
+    expect(decodeURIComponent(ok.data.url)).toContain("Test User");
+    expect(decodeURIComponent(ok.data.url)).toContain("premium user");
+    // Owner can clear the number; then the app gets a clear error instead of a broken link
+    const { cookie } = await adminLogin();
+    expect((await call(putSettings, adminReq("PUT", "/x", cookie, { whatsapp_number: null }))).status).toBe(200);
+    expect((await call(waLink, req("POST", "/x", { token: s.accessToken }))).status).toBeGreaterThanOrEqual(400);
   });
 
   it("refund ends the membership and is audited; a second refund fails", async () => {

@@ -53,7 +53,7 @@ export const userProfiles = pgTable(
       "user_profiles_category_chk",
       sql`${t.category} in ('individual','technician','business_owner','student')`,
     ),
-    check("user_profiles_pin_chk", sql`${t.pinCode} ~ '^[0-9]{6}$'`),
+    check("user_profiles_pin_chk", sql`${t.pinCode} ~ '^[0-9]{4,6}$'`),
     index("user_profiles_category_idx").on(t.category),
   ],
 );

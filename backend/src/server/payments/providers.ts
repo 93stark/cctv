@@ -10,6 +10,10 @@ export type CheckoutPayload =
       type: "manual_upi";
       qrImageUrl: string | null;
       payeeName: string | null;
+      /** Payee UPI ID; the app builds the QR and the "Pay" deep link from this. */
+      upiId: string | null;
+      /** upi://pay link with amount and note prefilled. */
+      upiLink: string | null;
       amountPaise: number;
       /** Ask the user to put this in the UPI remarks so the payment can be matched. */
       paymentNote: string;
@@ -87,18 +91,25 @@ class ManualUpiProvider implements PaymentProvider {
   readonly orderTtlMinutes = 24 * 60;
   readonly supportsWebhooks = false;
   async createCheckout(db: Db, order: { orderRef: string; amountPaise: number }): Promise<CheckoutPayload> {
-    const s = await getSettings(db, ["upi_qr_image_url", "upi_payee_name"]);
+    const s = await getSettings(db, ["upi_qr_image_url", "upi_payee_name", "upi_id"]);
     const rupees = order.amountPaise / 100;
+    const upiId = (s.upi_id as string | null) ?? null;
+    const payeeName = (s.upi_payee_name as string | null) ?? null;
+    const upiLink = upiId
+      ? `upi://pay?pa=${encodeURIComponent(upiId).replace(/%40/g, "@")}&pn=${encodeURIComponent(payeeName ?? "")}&am=${(order.amountPaise / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(order.orderRef)}`
+      : null;
     return {
       type: "manual_upi",
       qrImageUrl: (s.upi_qr_image_url as string | null) ?? null,
-      payeeName: (s.upi_payee_name as string | null) ?? null,
+      payeeName,
+      upiId,
+      upiLink,
       amountPaise: order.amountPaise,
       paymentNote: order.orderRef,
       instructions: [
-        `Scan the QR with any UPI app and pay exactly ₹${rupees}.`,
+        `Tap Pay to open your UPI app, or scan the QR from another phone. Pay exactly ₹${rupees}.`,
         `Write ${order.orderRef} in the payment remarks.`,
-        "After paying, enter the 12-digit UTR / transaction ID shown in your UPI app.",
+        "If you paid from another phone, enter the 12-digit UTR / transaction ID below.",
         "Your support plan is activated after our team verifies the payment.",
       ],
     };

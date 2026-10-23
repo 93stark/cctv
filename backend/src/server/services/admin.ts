@@ -158,8 +158,8 @@ export async function writeSettings(db: Db, actor: Actor, patch: Record<string, 
     for (const [key, value] of Object.entries(clean)) {
       await tx
         .insert(appSettings)
-        .values({ key, valueJson: value, updatedByAdmin: actor.id })
-        .onConflictDoUpdate({ target: appSettings.key, set: { valueJson: value, version: sql`${appSettings.version} + 1`, updatedAt: new Date(), updatedByAdmin: actor.id } });
+        .values({ key, valueJson: value === null ? sql`'null'::jsonb` : value, updatedByAdmin: actor.id })
+        .onConflictDoUpdate({ target: appSettings.key, set: { valueJson: value === null ? sql`'null'::jsonb` : value, version: sql`${appSettings.version} + 1`, updatedAt: new Date(), updatedByAdmin: actor.id } });
     }
     await audit(tx as unknown as Db, actor, "settings.update", "app_settings", null, before, clean, ip);
   });

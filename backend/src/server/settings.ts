@@ -50,7 +50,7 @@ export const SETTING_DEFS = {
   support_policy: {
     schema: text(5000),
     default:
-      "Limited Support: WhatsApp support for 30 days from the date of purchase, replies within 24 working hours. Lifetime Support: WhatsApp support for as long as the service runs, replies within 24 working hours. Support covers questions about the book and CCTV learning; on-site visits and repairs are not included.",
+      "Limited Support: WhatsApp support for 1000 days from the date of purchase, replies within 24 working hours. Lifetime Support: WhatsApp support for as long as the service runs, replies within 24 working hours. Support covers questions about the book and CCTV learning; on-site visits and repairs are not included.",
     public: true,
     label: "Support policy",
   },
@@ -77,15 +77,16 @@ export const SETTING_DEFS = {
     label: "Terms and conditions",
   },
   /* Private settings: never in the public config. */
-  whatsapp_number: { schema: phone.nullable(), default: null, public: false, label: "WhatsApp support number" },
+  whatsapp_number: { schema: phone.nullable(), default: "+917797493140", public: false, label: "WhatsApp support number" },
   whatsapp_message_template: {
     schema: text(500).min(1),
-    default: "Hello, I need support for CCTV Secret & Entrepreneurship. My membership reference is {reference}.",
+    default: "Hello, I am a premium user ({plan}, one-time payment of ₹{amount}) of the CCTV Secret & Entrepreneurship app. I need support. Name: {name}. Membership reference: {reference}.",
     public: false,
-    label: "WhatsApp prefilled message ({reference} is replaced)",
+    label: "WhatsApp prefilled message ({plan}, {amount}, {name}, {reference} are replaced)",
   },
   upi_qr_image_url: { schema: httpsUrl.nullable(), default: null, public: false, label: "UPI QR image URL (manual UPI mode)" },
-  upi_payee_name: { schema: text(120).nullable(), default: null, public: false, label: "UPI payee name shown at checkout" },
+  upi_id: { schema: text(80).nullable(), default: "7797493140cbi@ybl", public: false, label: "UPI ID (used for the Pay button and the generated QR)" },
+  upi_payee_name: { schema: text(120).nullable(), default: "Md Saddam Ansari", public: false, label: "UPI payee name shown at checkout" },
 } as const satisfies Record<string, Def>;
 
 export type SettingKey = keyof typeof SETTING_DEFS;

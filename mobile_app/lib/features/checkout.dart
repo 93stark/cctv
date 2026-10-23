@@ -3,6 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/format.dart';
 import '../providers.dart';
 import 'widgets.dart';
@@ -20,7 +22,9 @@ class PlansScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(plansProvider),
           builder: (plans) => ListView(padding: const EdgeInsets.all(16), children: [
             const Text('One-time payment. No subscription, no auto-renewal.', style: TextStyle(color: Color(0xFF9FB2CC))),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            TextButton.icon(onPressed: () => _showInfo(context), icon: const Icon(Icons.info_outline, size: 18), label: const Text('What do Limited and Lifetime mean? Terms, privacy and refunds')),
+            const SizedBox(height: 4),
             for (final p in plans.cast<Map<String, dynamic>>())
               Card(
                 child: Padding(
@@ -48,6 +52,25 @@ class PlansScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _showInfo(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Support plans, terms and refunds'),
+      content: const SingleChildScrollView(
+        child: Text(
+          'Limited Support (₹99): WhatsApp support for 1000 days from the date your payment is approved.\n\n'
+          'Lifetime Support (₹999): WhatsApp support with no expiry date, for as long as this support service is offered by Silicon Corporation.\n\n'
+          'Both are one-time payments. There is no subscription and no auto-renewal. Support covers questions about the book and CCTV learning; on-site visits and repairs are not included. Replies within 24 working hours (Mon to Sat, 10 AM to 6 PM).\n\n'
+          'Privacy: we store your name, mobile number, city, PIN code and category only to run your account and support. You can delete your account anytime from the Account screen.\n\n'
+          'Refunds: handled case by case by Silicon Corporation. Contact us on WhatsApp.',
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+    ),
+  );
 }
 
 class CheckoutScreen extends ConsumerStatefulWidget {
@@ -178,9 +201,24 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
     ];
     if (c['type'] == 'manual_upi') {
       final qr = c['qrImageUrl'] as String?;
+      final upiLink = c['upiLink'] as String?;
       widgets.addAll([
         const SizedBox(height: 8),
-        if (qr != null) Center(child: Container(color: Colors.white, padding: const EdgeInsets.all(8), child: CachedNetworkImage(imageUrl: qr, width: 240, height: 240, fit: BoxFit.contain))),
+        if (upiLink != null) Center(child: Container(color: Colors.white, padding: const EdgeInsets.all(10), child: QrImageView(data: upiLink, size: 230, backgroundColor: Colors.white)))
+        else if (qr != null) Center(child: Container(color: Colors.white, padding: const EdgeInsets.all(8), child: CachedNetworkImage(imageUrl: qr, width: 240, height: 240, fit: BoxFit.contain))),
+        if (upiLink != null && status == 'pending') ...[
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () async {
+              final ok = await launchUrl(Uri.parse(upiLink), mode: LaunchMode.externalApplication).catchError((_) => false);
+              if (!ok && mounted) snack(context, 'No UPI app found. Scan the QR from another phone, or pay using the UPI ID ${c['upiId']}.');
+            },
+            icon: const Icon(Icons.payments),
+            label: Text('Pay $amount with PhonePe / GPay / any UPI app'),
+          ),
+          const SizedBox(height: 6),
+          const Text('Paying from another phone? Scan the QR above, then enter the UTR number below.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF9FB2CC))),
+        ],
         if (c['payeeName'] != null) Padding(padding: const EdgeInsets.only(top: 8), child: Center(child: Text('Pay to: ${c['payeeName']}'))),
         const SizedBox(height: 8),
         for (final i in (c['instructions'] as List? ?? const [])) Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Text('• $i')),

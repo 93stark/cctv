@@ -92,9 +92,9 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 14),
             TextFormField(initialValue: auth.user?['mobile'] as String?, enabled: false, decoration: const InputDecoration(labelText: 'Mobile number')),
             const SizedBox(height: 14),
-            TextFormField(controller: _location, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Location (village / town, district, state)'), validator: (v) => (v ?? '').trim().length < 3 ? 'Enter your location' : null),
+            TextFormField(controller: _location, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'City'), validator: (v) => (v ?? '').trim().length < 3 ? 'Enter your city' : null),
             const SizedBox(height: 14),
-            TextFormField(controller: _pin, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: '6-digit PIN code', counterText: ''), validator: (v) => RegExp(r'^[0-9]{6}$').hasMatch((v ?? '').trim()) ? null : 'PIN code must be 6 digits'),
+            TextFormField(controller: _pin, keyboardType: TextInputType.number, maxLength: 4, decoration: const InputDecoration(labelText: '4-digit PIN code', counterText: ''), validator: (v) => RegExp(r'^[0-9]{4}$').hasMatch((v ?? '').trim()) ? null : 'PIN code must be 4 digits'),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _category,
