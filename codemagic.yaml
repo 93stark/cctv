@@ -1,0 +1,75 @@
+# Codemagic CI/CD for the Flutter app. Nothing here contains secrets: create the variable groups
+# "cctv_android" and "cctv_build" in Codemagic (Teams > Global variables and secrets).
+#
+#  cctv_build:   API_BASE_URL (your deployed backend, https://...), PRIVACY_URL, TERMS_URL
+#  cctv_android: KEYSTORE_B64 (base64 of the upload keystore, secure), KEYSTORE_PASSWORD (secure),
+#                KEY_ALIAS, KEY_PASSWORD (secure)
+#  Optional (Play upload): GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (secure) in the cctv_play group.
+workflows:
+  android-debug:
+    name: Android debug APK (every push)
+    working_directory: mobile_app
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - cctv_build
+    triggering:
+      events: [push, pull_request]
+      branch_patterns:
+        - { pattern: "*", include: true }
+    scripts:
+      - name: Prepare Android project
+        script: bash scripts/prepare_android.sh
+      - name: Get packages
+        script: flutter pub get
+      - name: Analyze
+        script: flutter analyze
+      - name: Unit tests
+        script: flutter test
+      - name: Build debug APK
+        script: flutter build apk --debug --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
+    artifacts:
+      - mobile_app/build/**/outputs/**/*.apk
+
+  android-release:
+    name: Android release AAB (manual / tags)
+    working_directory: mobile_app
+    max_build_duration: 40
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - cctv_build
+        - cctv_android
+    triggering:
+      events: [tag]
+      tag_patterns:
+        - { pattern: "v*", include: true }
+    scripts:
+      - name: Prepare Android project
+        script: bash scripts/prepare_android.sh
+      - name: Get packages
+        script: flutter pub get
+      - name: Analyze and test
+        script: |
+          flutter analyze
+          flutter test
+      - name: Restore upload keystore
+        script: |
+          echo "$KEYSTORE_B64" | base64 --decode > "$CM_BUILD_DIR/upload.jks"
+          echo "KEYSTORE_PATH=$CM_BUILD_DIR/upload.jks" >> "$CM_ENV"
+      - name: Build release AAB
+        script: |
+          flutter build appbundle --release \
+            --build-number="$((BUILD_NUMBER))" \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=PRIVACY_URL="$PRIVACY_URL" \
+            --dart-define=TERMS_URL="$TERMS_URL"
+      - name: Sign with upload key
+        script: bash scripts/sign_aab.sh
+    artifacts:
+      - mobile_app/build/**/outputs/**/*.aab
+    # Publishing to Google Play is intentionally NOT automated. Upload the AAB to an internal/closed
+    # testing track by hand, and promote to production only with the owner's approval.

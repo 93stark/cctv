@@ -1,0 +1,37 @@
+:root{--bg:#0b1320;--panel:#111d31;--line:#22364f;--text:#eaf1fb;--muted:#9fb2cc;--blue:#1d8cf0;--ok:#2fb26b;--warn:#ffb703;--bad:#ef5350}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+a{color:var(--blue)}
+h1{font-size:22px;margin:0 0 16px}h2{font-size:17px;margin:20px 0 10px}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:#0d1829;border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+textarea{min-height:90px;resize:vertical}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+button{background:var(--blue);border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button.bad{background:var(--bad)}button.ok{background:var(--ok)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.side{background:var(--panel);border-right:1px solid var(--line);padding:16px 10px;position:sticky;top:0;height:100vh;overflow:auto}
+.side b{display:block;padding:6px 10px 14px}
+.side button{display:block;width:100%;text-align:left;background:transparent;font-weight:500;margin:2px 0;color:var(--muted)}
+.side button.on{background:#17304f;color:var(--text)}
+.main{padding:22px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat small{color:var(--muted);display:block}.stat b{font-size:24px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--muted);font-weight:500}
+.scroll{overflow-x:auto}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>*{flex:0 1 auto}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:#1a2c47}
+.pill.paid,.pill.active,.pill.published,.pill.success,.pill.approved{background:#12391f;color:#7be0a6}
+.pill.awaiting_review,.pill.pending,.pill.draft{background:#3b2f0a;color:#ffd466}
+.pill.failed,.pill.refunded,.pill.revoked,.pill.blocked,.pill.rejected{background:#40191a;color:#ff9a98}
+.msg{padding:9px 12px;border-radius:8px;margin:10px 0;background:#17304f}.msg.err{background:#40191a}
+.login{max-width:380px;margin:12vh auto;padding:0 16px}
+.doc{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+.doc h1{font-size:28px}.doc p{color:#cfdbee;white-space:pre-wrap}
+@media(max-width:760px){.shell{grid-template-columns:1fr}.side{position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px}.side b{width:100%}.side button{width:auto}}

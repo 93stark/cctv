@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Generates the Android platform folder (if missing) and applies the project's settings.
+# Safe to run repeatedly. Requires Flutter on PATH.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+APP_ID="${APP_ID:-in.siliconcorporation.cctvsecret}"
+APP_LABEL="${APP_LABEL:-CCTV Secret}"
+
+if [ ! -d android ]; then
+  flutter create --org "${APP_ID%.*}" --project-name cctv_secret --platforms=android --overwrite .
+fi
+
+MANIFEST=android/app/src/main/AndroidManifest.xml
+python3 - "$MANIFEST" "$APP_LABEL" <<'PY'
+import re, sys
+path, label = sys.argv[1], sys.argv[2]
+s = open(path, encoding="utf-8").read()
+
+if "android.permission.INTERNET" not in s:
+    s = s.replace("<application", '<uses-permission android:name="android.permission.INTERNET"/>\n    <application', 1)
+
+queries = """<queries>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="http"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="tel"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="mailto"/></intent>
+    </queries>"""
+if "<queries>" not in s:
+    s = s.replace("<application", queries + "\n    <application", 1)
+
+s = re.sub(r'android:label="[^"]*"', f'android:label="{label}"', s, count=1)
+# Disable cloud backup of tokens/preferences.
+if "android:allowBackup" not in s:
+    s = s.replace("<application", '<application android:allowBackup="false"', 1)
+open(path, "w", encoding="utf-8").write(s)
+PY
+
+# Set the application id in whichever Gradle DSL the template uses.
+for f in android/app/build.gradle android/app/build.gradle.kts; do
+  [ -f "$f" ] || continue
+  sed -i -E "s/(applicationId\s*=?\s*)\"[^\"]*\"/\1\"${APP_ID}\"/; s/(namespace\s*=?\s*)\"[^\"]*\"/\1\"${APP_ID}\"/" "$f"
+done
+echo "Android project prepared for ${APP_ID}"

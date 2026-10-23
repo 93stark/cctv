@@ -1,0 +1,37 @@
+{
+  "name": "cctv-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API and admin panel for the CCTV Secret & Entrepreneurship app",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate-cli.ts",
+    "db:seed": "tsx src/db/seed-cli.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.15",
+    "@vercel/blob": "^2.8.2",
+    "drizzle-orm": "^0.45.4",
+    "jose": "^5.10.0",
+    "next": "15.5.28",
+    "postgres": "^3.4.7",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "drizzle-kit": "^0.31.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

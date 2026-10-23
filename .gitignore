@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+google-services.json
+.pglite/
+.uploads/
+.DS_Store

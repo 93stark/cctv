@@ -1,0 +1,10 @@
+.dart_tool/
+build/
+.flutter-plugins*
+.packages
+pubspec.lock
+android/key.properties
+*.jks
+*.keystore
+google-services.json
+.env*
