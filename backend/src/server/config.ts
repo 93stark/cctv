@@ -5,7 +5,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional().default(""),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   OTP_SECRET: z.string().min(32, "OTP_SECRET must be at least 32 characters"),
-  OTP_PROVIDER: z.enum(["mock", "none"]).default("mock"),
+  OTP_PROVIDER: z.enum(["mock", "apitxt", "none"]).default("mock"),
+  /** apitxt.com SMS OTP: Dashboard -> API Keys. Keep it only in the server environment. */
+  APITXT_AUTH_KEY: z.string().optional().default(""),
+  /** Optional apitxt SMS template id (integer, from Dashboard -> SMS Templates). Empty = apitxt system default template. */
+  APITXT_TEMPLATE_ID: z.string().regex(/^\d*$/, "APITXT_TEMPLATE_ID must be a number").optional().default(""),
   MOCK_OTP_CODE: z.string().regex(/^\d{4,6}$/).default("8899"),
   /** Explicit opt-in to run the demo OTP on a deployed server. Remove once a real OTP provider is live. */
   ALLOW_DEMO_OTP: z.enum(["true", "false"]).default("false"),
@@ -43,6 +47,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     if (c.OTP_PROVIDER === "mock" && c.ALLOW_DEMO_OTP !== "true") {
       problems.push("OTP_PROVIDER=mock is not allowed outside development (set ALLOW_DEMO_OTP=true only for a temporary demo)");
     }
+    if (c.OTP_PROVIDER === "apitxt" && !c.APITXT_AUTH_KEY) problems.push("APITXT_AUTH_KEY is required when OTP_PROVIDER=apitxt");
+    if (c.OTP_PROVIDER === "none") problems.push("OTP_PROVIDER=none cannot send OTPs");
     if (c.PAYMENT_PROVIDER === "mock") problems.push("PAYMENT_PROVIDER=mock is not allowed outside development");
     if (problems.length) throw new Error(`Unsafe configuration for ${c.APP_ENV}: ${problems.join("; ")}`);
   }

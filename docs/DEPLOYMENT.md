@@ -39,3 +39,10 @@ In-app notifications work. Push (FCM) needs a Firebase project, `google-services
 
 ## Vercel project "cctv-api" (already created)
 Root Directory `backend`, auto-deploys on every push to `main`. The `vercel-build` script runs `db:migrate` and `db:seed` (both idempotent) before `next build`, so the database is prepared on every deploy. Add a Neon Postgres database from the project's Storage tab; it injects `DATABASE_URL` automatically.
+
+## Real SMS OTP (apitxt.com)
+
+1. In the apitxt dashboard create/copy the API key (Dashboard -> API Keys). Make sure the wallet has balance and, if you use your own SMS template, note its numeric template id (the template must contain `{otp}`).
+2. In Vercel (project `cctv-api` -> Settings -> Environment Variables, Production) add `APITXT_AUTH_KEY` (mark Sensitive) and optionally `APITXT_TEMPLATE_ID`.
+3. Set `OTP_PROVIDER=apitxt` and delete `ALLOW_DEMO_OTP` and `MOCK_OTP_CODE`, then redeploy. The demo code 8899 stops working.
+4. apitxt allows 3 OTPs per mobile per minute; the API also limits 3 per 10 minutes per mobile.
