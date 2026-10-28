@@ -187,6 +187,9 @@ describe("settings, content, plans, memberships (owner)", () => {
     const mine = d.items.find((p: any) => p.id === pid);
     expect(mine.items.map((i: any) => i.name)).toEqual(["IP Camera"]);
     expect(mine.items[0]).toMatchObject({ unitPricePaise: 250000, defaultQty: 1, unit: "pcs" });
+    const ip = d.items.find((p: any) => p.name === "IP Camera Package");
+    expect(ip.items.map((i: any) => [i.name, i.unitPricePaise / 100])).toContainEqual(["IP Dome Camera", 3400]);
+    expect(ip.items.find((i: any) => i.name === "CAT6 Cable")).toMatchObject({ unit: "meter", unitPricePaise: 3500, defaultQty: 30 });
     expect(d.orderWhatsapp).toBe("+917797493140");
     expect((await call(quotePkgs, req("GET", "/x"))).status).toBe(401);
   });

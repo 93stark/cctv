@@ -140,7 +140,7 @@ export async function quotePackageList(db: Db) {
     items: pkgs.map((p) => ({
       id: p.id, name: p.name, description: p.description,
       items: items.filter((i) => i.packageId === p.id).map((i) => ({
-        id: i.id, name: i.name, description: i.description, unit: i.unit, unitPricePaise: i.unitPricePaise, defaultQty: i.defaultQty,
+        id: i.id, name: i.name, description: i.description, imageUrl: i.imageUrl, unit: i.unit, unitPricePaise: i.unitPricePaise, defaultQty: i.defaultQty,
       })),
     })),
   };

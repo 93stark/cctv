@@ -198,6 +198,7 @@ export const quoteItems = pgTable(
     packageId: uuid("package_id").notNull().references(() => quotePackages.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
+    imageUrl: text("image_url"),
     unit: text("unit").notNull().default("pcs"),
     unitPricePaise: integer("unit_price_paise").notNull().default(0),
     defaultQty: integer("default_qty").notNull().default(1),

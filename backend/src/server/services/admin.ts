@@ -199,7 +199,7 @@ export const CONTENT = {
     table: quoteItems,
     create: z.object({
       packageId: z.string().uuid(), name: z.string().trim().min(1).max(160), description: z.string().trim().max(300).default(""),
-      unit: z.string().trim().min(1).max(20).default("pcs"), unitPricePaise: z.number().int().min(0).max(100_000_000),
+      imageUrl: optUrl, unit: z.string().trim().min(1).max(20).default("pcs"), unitPricePaise: z.number().int().min(0).max(100_000_000),
       defaultQty: z.number().int().min(0).max(1000).default(1), sortOrder: z.number().int().min(0).max(1000).default(0),
       isActive: z.boolean().default(true),
     }).strict(),

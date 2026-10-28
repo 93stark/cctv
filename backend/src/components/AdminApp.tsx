@@ -563,21 +563,35 @@ function Quotes() {
           {open === p.id && (
             <div className="scroll">
               <table className="tbl">
-                <thead><tr><th>Item</th><th>Unit</th><th>Price ₹</th><th>Default qty</th><th>Active</th><th /></tr></thead>
+                <thead><tr><th>Item</th><th>Image</th><th>Unit</th><th>Price ₹</th><th>Default qty</th><th>Active</th><th /></tr></thead>
                 <tbody>
                   {items(p.id).map((i: Json) => {
-                    const e = ed[i.id] ?? { name: i.name, unit: i.unit, price: String(i.unitPricePaise / 100), qty: String(i.defaultQty), isActive: i.isActive };
+                    const e = ed[i.id] ?? { name: i.name, unit: i.unit, imageUrl: i.imageUrl ?? "", price: String(i.unitPricePaise / 100), qty: String(i.defaultQty), isActive: i.isActive };
                     const set = (k: string, v: unknown) => setEd({ ...ed, [i.id]: { ...e, [k]: v } });
                     return (
                       <tr key={i.id}>
                         <td><input value={e.name} onChange={(x) => set("name", x.target.value)} /></td>
+                        <td>
+                          {e.imageUrl && <img src={e.imageUrl} alt="" style={{ height: 36, borderRadius: 6, display: "block" }} />}
+                          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (x) => {
+                            const file = x.target.files?.[0];
+                            if (!file) return;
+                            await a.run(async () => {
+                              const fd = new FormData(); fd.append("file", file);
+                              const res = await fetch("/api/admin/uploads?kind=image", { method: "POST", body: fd, headers: { "x-admin-csrf": "1" }, credentials: "same-origin" });
+                              const j = await res.json();
+                              if (!res.ok) throw new Error(j?.error?.message ?? "Upload failed");
+                              set("imageUrl", j.url);
+                            }, "Image uploaded - press Save.");
+                          }} />
+                        </td>
                         <td><input style={{ width: 70 }} value={e.unit} onChange={(x) => set("unit", x.target.value)} /></td>
                         <td><input style={{ width: 100 }} type="number" min="0" step="0.01" value={e.price} onChange={(x) => set("price", x.target.value)} /></td>
                         <td><input style={{ width: 70 }} type="number" min="0" value={e.qty} onChange={(x) => set("qty", x.target.value)} /></td>
                         <td><input style={{ width: "auto" }} type="checkbox" checked={!!e.isActive} onChange={(x) => set("isActive", x.target.checked)} /></td>
                         <td className="row">
                           <button disabled={a.busy} onClick={async () => {
-                            const body = { name: e.name, unit: e.unit, unitPricePaise: Math.round(Number(e.price) * 100), defaultQty: Number(e.qty) || 0, isActive: !!e.isActive };
+                            const body = { name: e.name, imageUrl: e.imageUrl || null, unit: e.unit, unitPricePaise: Math.round(Number(e.price) * 100), defaultQty: Number(e.qty) || 0, isActive: !!e.isActive };
                             if (await a.run(() => api(`/content/quote_items/${i.id}`, "PUT", body), "Saved.")) { setEd({ ...ed, [i.id]: undefined as never }); reload(); }
                           }}>Save</button>
                           <button className="ghost" onClick={async () => { if (window.confirm("Delete this item?") && (await a.run(() => api(`/content/quote_items/${i.id}`, "DELETE"), "Deleted."))) reload(); }}>Delete</button>
@@ -587,6 +601,7 @@ function Quotes() {
                   })}
                   <tr>
                     <td><input placeholder="New item name" value={nf.name} onChange={(x) => setNf({ ...nf, name: x.target.value })} /></td>
+                    <td />
                     <td><input style={{ width: 70 }} value={nf.unit} onChange={(x) => setNf({ ...nf, unit: x.target.value })} /></td>
                     <td><input style={{ width: 100 }} type="number" min="0" step="0.01" placeholder="0" value={nf.price} onChange={(x) => setNf({ ...nf, price: x.target.value })} /></td>
                     <td><input style={{ width: 70 }} type="number" min="0" value={nf.qty} onChange={(x) => setNf({ ...nf, qty: x.target.value })} /></td>

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -235,6 +236,19 @@ class _GenTabState extends ConsumerState<GenTab> {
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: SizedBox(
+                              width: 54,
+                              height: 54,
+                              child: (i['imageUrl'] as String?)?.isNotEmpty == true
+                                  ? CachedNetworkImage(imageUrl: i['imageUrl'] as String, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.videocam_outlined, size: 28))
+                                  : ColoredBox(color: scheme.surfaceContainerHighest, child: const Icon(Icons.videocam_outlined, size: 28)),
+                            ),
+                          ),
+                        ),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(i['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),

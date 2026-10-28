@@ -119,6 +119,27 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
     await db.insert(appSettings).values({ key: "quotes_demo_priced", valueJson: true }).onConflictDoNothing();
   }
 
+  // Owner's rates (v2) for the two sample packages, once. Skipped if the admin already changed any price.
+  const rMarker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_rates_v2")).limit(1);
+  if (!rMarker[0]) {
+    const v1: Record<string, number> = { "HD Camera": 1200, DVR: 3500, SMPS: 650, HDD: 3200, "Coaxial Cable": 1800, "BNC / DC Connectors": 40, "IP Camera": 2800, NVR: 5500, "PoE Switch": 3000, "CAT6 Cable": 4500, "RJ45 Connectors": 15 };
+    type Row = [string, string, number, number]; // name, unit, rupees, default qty
+    const v2: Record<string, Row[]> = {
+      "HD Camera Package": [["HD Bullet Camera", "pcs", 1200, 1], ["HD Dome Camera", "pcs", 1200, 1], ["DVR", "pcs", 4200, 1], ["SMPS", "pcs", 400, 1], ["Hard Disk 500GB", "pcs", 2200, 1], ["3+1 Coaxial Cable", "meter", 20, 30]],
+      "IP Camera Package": [["IP Dome Camera", "pcs", 3400, 1], ["IP Bullet Camera", "pcs", 3500, 1], ["NVR", "pcs", 4500, 1], ["PoE Switch 4 Channel", "pcs", 1800, 1], ["Hard Disk 500GB", "pcs", 2200, 1], ["CAT6 Cable", "meter", 35, 30]],
+    };
+    for (const [name, rows] of Object.entries(v2)) {
+      const [pkg] = await db.select().from(quotePackages).where(eq(quotePackages.name, name)).limit(1);
+      if (!pkg) continue;
+      const old = await db.select().from(quoteItems).where(eq(quoteItems.packageId, pkg.id));
+      if (old.some((o) => v1[o.name] === undefined || v1[o.name] * 100 !== o.unitPricePaise)) continue; // admin edited it
+      await db.delete(quoteItems).where(eq(quoteItems.packageId, pkg.id));
+      await db.insert(quoteItems).values(rows.map(([n, unit, rs, qty], k) => ({ packageId: pkg.id, name: n, unit, unitPricePaise: rs * 100, defaultQty: qty, sortOrder: k })));
+      await db.update(quotePackages).set({ status: "published" }).where(eq(quotePackages.id, pkg.id));
+    }
+    await db.insert(appSettings).values({ key: "quotes_rates_v2", valueJson: true }).onConflictDoNothing();
+  }
+
   let adminCreated = false;
   const email = opts.adminEmail?.trim().toLowerCase();
   if (email && opts.adminPassword) {
