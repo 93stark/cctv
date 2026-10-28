@@ -201,6 +201,28 @@ class MembershipScreen extends ConsumerWidget {
 
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
+
+  static (String, Color) _status(String s) {
+    switch (s) {
+      case 'paid':
+        return ('Paid', const Color(0xFF2FB26B));
+      case 'awaiting_review':
+        return ('Under review', const Color(0xFFFFB703));
+      case 'pending':
+        return ('Payment pending', const Color(0xFF9FB2CC));
+      case 'refunded':
+        return ('Refunded', const Color(0xFF5BB4FF));
+      case 'failed':
+        return ('Failed', const Color(0xFFE5484D));
+      case 'expired':
+        return ('Expired', const Color(0xFF9FB2CC));
+      case 'cancelled':
+        return ('Cancelled', const Color(0xFF9FB2CC));
+      default:
+        return (s.replaceAll('_', ' '), const Color(0xFF9FB2CC));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
@@ -211,17 +233,45 @@ class HistoryScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(historyProvider),
           builder: (items) => items.isEmpty
               ? const Center(child: Text('No payments yet.'))
-              : ListView(children: [
-                  for (final h in items.cast<Map<String, dynamic>>())
-                    ListTile(
-                      title: Text('${h['planName']}  ${rupees(h['amountPaise'] as num)}'),
-                      subtitle: Text('${dateOnly(h['createdAt'])} · ${h['orderRef']}${h['txnRef'] != null ? '\nTxn: ${h['txnRef']}' : ''}'),
-                      isThreeLine: h['txnRef'] != null,
-                      trailing: Text((h['txnStatus'] == 'refunded' ? 'refunded' : h['status']).toString().replaceAll('_', ' ')),
-                    ),
-                ]),
+              : RefreshIndicator(
+                  onRefresh: () async => ref.refresh(historyProvider.future),
+                  child: ListView(padding: const EdgeInsets.all(14), children: [
+                    for (final h in items.cast<Map<String, dynamic>>()) _historyCard(h),
+                  ]),
+                ),
         ),
       ),
+    );
+  }
+
+  Widget _historyCard(Map<String, dynamic> h) {
+    final (label, color) = _status((h['status'] ?? '').toString());
+    final txn = h['transactionRef'] as String?;
+    final memRef = h['membershipReference'] as String?;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: const Color(0xFF14233A), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF22364F))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text((h['plan'] ?? 'Support plan').toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+          Text(rupees(h['amountPaise'] as num), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: color.withOpacity(0.16), borderRadius: BorderRadius.circular(6), border: Border.all(color: color)),
+            child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+          ),
+          const SizedBox(width: 10),
+          Text(dateOnly(h['date']), style: const TextStyle(fontSize: 13, color: Color(0xFF9FB2CC))),
+        ]),
+        const SizedBox(height: 8),
+        Text('Order: ${h['orderRef']}', style: const TextStyle(fontSize: 12.5, color: Color(0xFF9FB2CC))),
+        if (txn != null && txn.isNotEmpty) Text('UTR / Txn: $txn', style: const TextStyle(fontSize: 12.5, color: Color(0xFF9FB2CC))),
+        if (memRef != null) Text('Support reference: $memRef', style: const TextStyle(fontSize: 12.5, color: Color(0xFF9FB2CC))),
+      ]),
     );
   }
 }
