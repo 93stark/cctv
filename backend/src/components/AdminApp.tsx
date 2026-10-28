@@ -70,6 +70,7 @@ export default function AdminApp() {
     ["plans", "Plans", can("plans.manage")],
     ["banners", "Banners", can("content.manage")],
     ["books", "Books", can("content.manage")],
+    ["quotes", "GEN Quotes", can("content.manage")],
     ["videos", "Videos", can("content.manage")],
     ["resources", "PDFs & pages", can("content.manage")],
     ["notifications", "Notifications", can("notifications.manage")],
@@ -101,6 +102,7 @@ export default function AdminApp() {
         {tab === "plans" && <Plans />}
         {tab === "banners" && <Content kind="banners" />}
         {tab === "books" && <Content kind="books" />}
+        {tab === "quotes" && <Quotes />}
         {tab === "videos" && <Content kind="videos" />}
         {tab === "resources" && <Content kind="resources" />}
         {tab === "notifications" && <Content kind="notifications" />}
@@ -510,6 +512,96 @@ function Content({ kind }: { kind: string }) {
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+function Quotes() {
+  const pk = useLoad("/content/quote_packages");
+  const it = useLoad("/content/quote_items");
+  const a = useAction();
+  const [open, setOpen] = useState<string | null>(null);
+  const [pf, setPf] = useState<Json | null>(null);
+  const [nf, setNf] = useState<Json>({ name: "", price: "", qty: "1", unit: "pcs" });
+  const [ed, setEd] = useState<Record<string, Json>>({});
+  const reload = () => { pk.reload(); it.reload(); };
+  const items = (id: string): Json[] => (it.data?.items ?? []).filter((i: Json) => i.packageId === id).sort((x: Json, y: Json) => x.sortOrder - y.sortOrder);
+  const total = (id: string) => items(id).filter((i) => i.isActive).reduce((t: number, i: Json) => t + i.unitPricePaise * i.defaultQty, 0);
+
+  return (
+    <>
+      <h1>GEN · Quotation packages</h1>
+      <p style={{ color: "var(--muted)" }}>Each published package appears in the app's GEN tab. Prices are per unit in ₹. Items with price 0 should be priced before publishing.</p>
+      {(pk.error || it.error) && <div className="msg err">{pk.error || it.error}</div>}
+      {a.el}
+      {pf ? (
+        <div className="card">
+          <label>Package name *</label><input value={pf.name} onChange={(e) => setPf({ ...pf, name: e.target.value })} />
+          <label>Description</label><textarea value={pf.description} onChange={(e) => setPf({ ...pf, description: e.target.value })} />
+          <label>Status</label><select value={pf.status} onChange={(e) => setPf({ ...pf, status: e.target.value })}>{STATUS.map((o) => <option key={o}>{o}</option>)}</select>
+          <label>Order</label><input type="number" value={pf.sortOrder} onChange={(e) => setPf({ ...pf, sortOrder: e.target.value })} />
+          <p className="row">
+            <button disabled={a.busy} onClick={async () => {
+              const body = { name: pf.name, description: pf.description, status: pf.status, sortOrder: Number(pf.sortOrder) || 0 };
+              if (await a.run(() => pf.id ? api(`/content/quote_packages/${pf.id}`, "PUT", body) : api("/content/quote_packages", "POST", body), "Saved.")) { setPf(null); reload(); }
+            }}>Save</button>
+            <button className="ghost" onClick={() => setPf(null)}>Cancel</button>
+          </p>
+        </div>
+      ) : <p><button onClick={() => setPf({ name: "", description: "", status: "draft", sortOrder: 0 })}>Add package</button></p>}
+
+      {pk.data?.items.map((p: Json) => (
+        <div className="card" key={p.id}>
+          <div className="row">
+            <b>{p.name}</b> <span className={`pill ${p.status}`}>{p.status}</span>
+            <span style={{ color: "var(--muted)" }}>{items(p.id).length} items · default total ₹{(total(p.id) / 100).toLocaleString("en-IN")}</span>
+            <button className="ghost" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? "Hide items" : "Items"}</button>
+            <button className="ghost" onClick={() => setPf({ ...p })}>Edit</button>
+            <button className="ghost" onClick={async () => { if (await a.run(() => api(`/content/quote_packages/${p.id}`, "PUT", { status: p.status === "published" ? "unpublished" : "published" }), "Updated.")) reload(); }}>{p.status === "published" ? "Unpublish" : "Publish"}</button>
+            <button className="ghost" onClick={async () => { if (window.confirm("Delete this package and all its items?") && (await a.run(() => api(`/content/quote_packages/${p.id}`, "DELETE"), "Deleted."))) reload(); }}>Delete</button>
+          </div>
+          {open === p.id && (
+            <div className="scroll">
+              <table className="tbl">
+                <thead><tr><th>Item</th><th>Unit</th><th>Price ₹</th><th>Default qty</th><th>Active</th><th /></tr></thead>
+                <tbody>
+                  {items(p.id).map((i: Json) => {
+                    const e = ed[i.id] ?? { name: i.name, unit: i.unit, price: String(i.unitPricePaise / 100), qty: String(i.defaultQty), isActive: i.isActive };
+                    const set = (k: string, v: unknown) => setEd({ ...ed, [i.id]: { ...e, [k]: v } });
+                    return (
+                      <tr key={i.id}>
+                        <td><input value={e.name} onChange={(x) => set("name", x.target.value)} /></td>
+                        <td><input style={{ width: 70 }} value={e.unit} onChange={(x) => set("unit", x.target.value)} /></td>
+                        <td><input style={{ width: 100 }} type="number" min="0" step="0.01" value={e.price} onChange={(x) => set("price", x.target.value)} /></td>
+                        <td><input style={{ width: 70 }} type="number" min="0" value={e.qty} onChange={(x) => set("qty", x.target.value)} /></td>
+                        <td><input style={{ width: "auto" }} type="checkbox" checked={!!e.isActive} onChange={(x) => set("isActive", x.target.checked)} /></td>
+                        <td className="row">
+                          <button disabled={a.busy} onClick={async () => {
+                            const body = { name: e.name, unit: e.unit, unitPricePaise: Math.round(Number(e.price) * 100), defaultQty: Number(e.qty) || 0, isActive: !!e.isActive };
+                            if (await a.run(() => api(`/content/quote_items/${i.id}`, "PUT", body), "Saved.")) { setEd({ ...ed, [i.id]: undefined as never }); reload(); }
+                          }}>Save</button>
+                          <button className="ghost" onClick={async () => { if (window.confirm("Delete this item?") && (await a.run(() => api(`/content/quote_items/${i.id}`, "DELETE"), "Deleted."))) reload(); }}>Delete</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td><input placeholder="New item name" value={nf.name} onChange={(x) => setNf({ ...nf, name: x.target.value })} /></td>
+                    <td><input style={{ width: 70 }} value={nf.unit} onChange={(x) => setNf({ ...nf, unit: x.target.value })} /></td>
+                    <td><input style={{ width: 100 }} type="number" min="0" step="0.01" placeholder="0" value={nf.price} onChange={(x) => setNf({ ...nf, price: x.target.value })} /></td>
+                    <td><input style={{ width: 70 }} type="number" min="0" value={nf.qty} onChange={(x) => setNf({ ...nf, qty: x.target.value })} /></td>
+                    <td />
+                    <td><button disabled={a.busy || !nf.name.trim()} onClick={async () => {
+                      const body = { packageId: p.id, name: nf.name, unit: nf.unit || "pcs", unitPricePaise: Math.round(Number(nf.price) * 100) || 0, defaultQty: Number(nf.qty) || 0, sortOrder: items(p.id).length };
+                      if (await a.run(() => api("/content/quote_items", "POST", body), "Item added.")) { setNf({ name: "", price: "", qty: "1", unit: "pcs" }); reload(); }
+                    }}>Add item</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "@/db";
-import { banners, books, learningResources, supportPlans, videos } from "@/db/schema";
+import { banners, books, quoteItems, quotePackages, learningResources, supportPlans, videos } from "@/db/schema";
 import { getSettings } from "../settings";
 import { getEffectiveMembership } from "./membership";
 
@@ -124,5 +124,24 @@ export async function homeFeed(db: Db, userId: string) {
     freeVideos: videoList,
     resources: resourceList,
     membership,
+  };
+}
+
+/** Published quotation packages with their active items, for the app's GEN screen. Prices are integer paise. */
+export async function quotePackageList(db: Db) {
+  const pkgs = await db.select().from(quotePackages).where(eq(quotePackages.status, "published")).orderBy(asc(quotePackages.sortOrder), asc(quotePackages.createdAt));
+  const items = pkgs.length
+    ? await db.select().from(quoteItems).where(eq(quoteItems.isActive, true)).orderBy(asc(quoteItems.sortOrder), asc(quoteItems.createdAt))
+    : [];
+  const s = await getSettings(db, ["whatsapp_number", "company_name", "company_info", "office_phone"]);
+  return {
+    company: { name: s.company_name, info: s.company_info, phone: s.office_phone },
+    orderWhatsapp: s.whatsapp_number,
+    items: pkgs.map((p) => ({
+      id: p.id, name: p.name, description: p.description,
+      items: items.filter((i) => i.packageId === p.id).map((i) => ({
+        id: i.id, name: i.name, description: i.description, unit: i.unit, unitPricePaise: i.unitPricePaise, defaultQty: i.defaultQty,
+      })),
+    })),
   };
 }

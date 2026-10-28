@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, appSettings, books, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItems, quotePackages, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -82,6 +82,23 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       });
     }
     await db.insert(appSettings).values({ key: "books_seeded", valueJson: true }).onConflictDoNothing();
+  }
+
+  // Sample quotation packages (drafts, prices 0) so the admin has a starting point; added once.
+  const qMarker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_seeded")).limit(1);
+  if (!qMarker[0]) {
+    const existing = await db.select({ id: quotePackages.id }).from(quotePackages).limit(1);
+    if (!existing[0]) {
+      const sets: [string, string[]][] = [
+        ["HD Camera Package", ["HD Camera", "DVR", "SMPS", "HDD", "Coaxial Cable", "BNC / DC Connectors"]],
+        ["IP Camera Package", ["IP Camera", "NVR", "PoE Switch", "HDD", "CAT6 Cable", "RJ45 Connectors"]],
+      ];
+      for (const [i, [name, items]] of sets.entries()) {
+        const [pkg] = await db.insert(quotePackages).values({ name, sortOrder: i, status: "draft" }).returning();
+        await db.insert(quoteItems).values(items.map((n, k) => ({ packageId: pkg.id, name: n, sortOrder: k, unitPricePaise: 0, defaultQty: 1 })));
+      }
+    }
+    await db.insert(appSettings).values({ key: "quotes_seeded", valueJson: true }).onConflictDoNothing();
   }
 
   let adminCreated = false;

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
 import 'account.dart';
+import 'gen.dart';
 import 'learn.dart';
 import 'support.dart';
 import 'widgets.dart';
@@ -30,7 +31,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [const HomeTab(), const LearnTab(), const SupportTab(), const AccountTab()];
+    final pages = [const HomeTab(), const LearnTab(), const SupportTab(), const GenTab(), const AccountTab()];
     return Scaffold(
       body: SafeArea(child: pages[_i]),
       bottomNavigationBar: NavigationBar(
@@ -40,6 +41,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.play_circle_outline), selectedIcon: Icon(Icons.play_circle), label: 'Learn'),
           NavigationDestination(icon: Icon(Icons.support_agent_outlined), selectedIcon: Icon(Icons.support_agent), label: 'Support'),
+          NavigationDestination(icon: Icon(Icons.calculate_outlined), selectedIcon: Icon(Icons.calculate), label: 'GEN'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
         ],
       ),

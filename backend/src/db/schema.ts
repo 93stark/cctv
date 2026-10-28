@@ -174,6 +174,44 @@ export const books = pgTable(
   ],
 );
 
+export const quotePackages = pgTable(
+  "quote_packages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    status: text("status").notNull().default("draft"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check("quote_packages_status_chk", sql`${t.status} in ('draft','published','unpublished')`),
+    index("quote_packages_status_idx").on(t.status, t.sortOrder),
+  ],
+);
+
+export const quoteItems = pgTable(
+  "quote_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    packageId: uuid("package_id").notNull().references(() => quotePackages.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    unit: text("unit").notNull().default("pcs"),
+    unitPricePaise: integer("unit_price_paise").notNull().default(0),
+    defaultQty: integer("default_qty").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check("quote_items_price_chk", sql`${t.unitPricePaise} >= 0 and ${t.defaultQty} >= 0`),
+    index("quote_items_pkg_idx").on(t.packageId, t.sortOrder),
+  ],
+);
+
 export const videos = pgTable(
   "videos",
   {

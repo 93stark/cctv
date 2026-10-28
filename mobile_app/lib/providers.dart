@@ -108,6 +108,7 @@ final homeProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => r
 final videosProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async => (await ref.read(apiProvider).get('/videos'))['items'] as List);
 final resourcesProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async => (await ref.read(apiProvider).get('/resources'))['items'] as List);
 final plansProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async => (await ref.read(apiProvider).get('/plans', auth: false))['items'] as List);
+final quotePackagesProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) => ref.read(apiProvider).get('/quotes/packages'));
 final membershipProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
   final r = await ref.read(apiProvider).get('/membership');
   return r['membership'] == null ? null : Map<String, dynamic>.from(r['membership'] as Map);

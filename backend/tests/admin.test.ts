@@ -16,6 +16,7 @@ import { POST as grant } from "@/app/api/admin/memberships/route";
 import { GET as homeFeed } from "@/app/api/v1/home/route";
 import { GET as publicConfig } from "@/app/api/v1/config/route";
 import { GET as getMembership } from "@/app/api/v1/membership/route";
+import { GET as quotePkgs } from "@/app/api/v1/quotes/packages/route";
 import { GET as publicPlans } from "@/app/api/v1/plans/route";
 import { adminUsers } from "@/db/schema";
 import { hashPassword } from "@/server/crypto";
@@ -168,6 +169,26 @@ describe("settings, content, plans, memberships (owner)", () => {
     // The seeded default book is there too, and older apps still get a single `book`.
     expect(f.books.some((b: any) => b.title === "CCTV Secret & Entrepreneurship")).toBe(true);
     expect(f.book.amazonUrl).toContain("amazon.in");
+  });
+
+  it("quotes: admin builds a package with priced items; only published packages and active items reach the app", async () => {
+    const { cookie } = await adminLogin();
+    const viewer = await loginUser("+917999900012");
+    const get = async () => (await call(quotePkgs, req("GET", "/x", { token: viewer.accessToken }))).data;
+    expect(JSON.stringify(await get())).not.toContain("HD Camera Package"); // seeded drafts are hidden
+    const pkg = await call(contentPost, adminReq("POST", "/x", cookie, { name: "Test Package", status: "published" }), { kind: "quote_packages" });
+    expect(pkg.status).toBe(201);
+    const pid = pkg.data.item.id;
+    const bad = await call(contentPost, adminReq("POST", "/x", cookie, { packageId: pid, name: "Neg", unitPricePaise: -5 }), { kind: "quote_items" });
+    expect(bad.status).toBe(400);
+    await call(contentPost, adminReq("POST", "/x", cookie, { packageId: pid, name: "IP Camera", unitPricePaise: 250000, sortOrder: 0 }), { kind: "quote_items" });
+    await call(contentPost, adminReq("POST", "/x", cookie, { packageId: pid, name: "Hidden Item", unitPricePaise: 100, isActive: false }), { kind: "quote_items" });
+    const d = await get();
+    const mine = d.items.find((p: any) => p.id === pid);
+    expect(mine.items.map((i: any) => i.name)).toEqual(["IP Camera"]);
+    expect(mine.items[0]).toMatchObject({ unitPricePaise: 250000, defaultQty: 1, unit: "pcs" });
+    expect(d.orderWhatsapp).toBe("+917797493140");
+    expect((await call(quotePkgs, req("GET", "/x"))).status).toBe(401);
   });
 
   it("partial update keeps fields that were not sent", async () => {
