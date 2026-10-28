@@ -175,7 +175,7 @@ describe("settings, content, plans, memberships (owner)", () => {
     const { cookie } = await adminLogin();
     const viewer = await loginUser("+917999900012");
     const get = async () => (await call(quotePkgs, req("GET", "/x", { token: viewer.accessToken }))).data;
-    expect(JSON.stringify(await get())).not.toContain("HD Camera Package"); // seeded drafts are hidden
+    expect(JSON.stringify(await get())).toContain("HD Camera Package"); // sample packages ship published with dummy prices
     const pkg = await call(contentPost, adminReq("POST", "/x", cookie, { name: "Test Package", status: "published" }), { kind: "quote_packages" });
     expect(pkg.status).toBe(201);
     const pid = pkg.data.item.id;

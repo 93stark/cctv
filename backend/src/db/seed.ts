@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItems, quotePackages, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
@@ -99,6 +99,24 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       }
     }
     await db.insert(appSettings).values({ key: "quotes_seeded", valueJson: true }).onConflictDoNothing();
+  }
+
+  // Dummy prices + published for the two sample packages, once, so GEN works out of the box. Admin replaces with real prices.
+  const pMarker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_demo_priced")).limit(1);
+  if (!pMarker[0]) {
+    const demo: Record<string, Record<string, number>> = {
+      "HD Camera Package": { "HD Camera": 1200, DVR: 3500, SMPS: 650, HDD: 3200, "Coaxial Cable": 1800, "BNC / DC Connectors": 40 },
+      "IP Camera Package": { "IP Camera": 2800, NVR: 5500, "PoE Switch": 3000, HDD: 3200, "CAT6 Cable": 4500, "RJ45 Connectors": 15 },
+    };
+    for (const [name, prices] of Object.entries(demo)) {
+      const [pkg] = await db.select().from(quotePackages).where(eq(quotePackages.name, name)).limit(1);
+      if (!pkg) continue;
+      const rows = await db.select().from(quoteItems).where(eq(quoteItems.packageId, pkg.id));
+      if (rows.some((r) => r.unitPricePaise > 0)) continue; // admin already priced it
+      for (const r of rows) if (prices[r.name] !== undefined) await db.update(quoteItems).set({ unitPricePaise: prices[r.name] * 100 }).where(eq(quoteItems.id, r.id));
+      await db.update(quotePackages).set({ status: "published" }).where(eq(quotePackages.id, pkg.id));
+    }
+    await db.insert(appSettings).values({ key: "quotes_demo_priced", valueJson: true }).onConflictDoNothing();
   }
 
   let adminCreated = false;
