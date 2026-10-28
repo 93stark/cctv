@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, isNull, lte, or } from "drizzle-orm";
 import type { Db } from "@/db";
-import { banners, learningResources, supportPlans, videos } from "@/db/schema";
+import { banners, books, learningResources, supportPlans, videos } from "@/db/schema";
 import { getSettings } from "../settings";
 import { getEffectiveMembership } from "./membership";
 
@@ -23,6 +23,19 @@ export async function visibleBanners(db: Db, now = new Date()) {
     description: b.description,
     buttonText: b.buttonText,
     destinationUrl: b.destinationUrl,
+  }));
+}
+
+export async function visibleBooks(db: Db) {
+  const rows = await db.select().from(books).where(eq(books.status, "published")).orderBy(asc(books.sortOrder), desc(books.createdAt));
+  return rows.map((b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    description: b.description,
+    coverUrl: b.coverUrl,
+    buyUrl: b.buyUrl,
+    buttonText: b.buttonText,
   }));
 }
 
@@ -92,8 +105,9 @@ export async function listActivePlans(db: Db) {
 }
 
 export async function homeFeed(db: Db, userId: string) {
-  const [bannerList, videoList, resourceList, settings, membership] = await Promise.all([
+  const [bannerList, bookList, videoList, resourceList, settings, membership] = await Promise.all([
     visibleBanners(db),
+    visibleBooks(db),
     listVideos(db, userId, 6),
     listResources(db, userId, 6),
     getSettings(db, ["book_title", "book_author", "amazon_url", "book_cover_url", "promo_text"]),
@@ -101,12 +115,11 @@ export async function homeFeed(db: Db, userId: string) {
   ]);
   return {
     banners: bannerList,
-    book: {
-      title: settings.book_title,
-      author: settings.book_author,
-      amazonUrl: settings.amazon_url,
-      coverUrl: settings.book_cover_url,
-    },
+    books: bookList,
+    // Older app versions read a single `book`; keep serving it (first published book, else the legacy settings).
+    book: bookList[0]
+      ? { title: bookList[0].title, author: bookList[0].author, amazonUrl: bookList[0].buyUrl, coverUrl: bookList[0].coverUrl }
+      : { title: settings.book_title, author: settings.book_author, amazonUrl: settings.amazon_url, coverUrl: settings.book_cover_url },
     promoText: settings.promo_text,
     freeVideos: videoList,
     resources: resourceList,

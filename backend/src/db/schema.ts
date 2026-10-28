@@ -153,6 +153,27 @@ export const banners = pgTable(
   ],
 );
 
+export const books = pgTable(
+  "books",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    author: text("author").notNull().default(""),
+    description: text("description").notNull().default(""),
+    coverUrl: text("cover_url"),
+    buyUrl: text("buy_url").notNull(),
+    buttonText: text("button_text").notNull().default("Buy now"),
+    status: text("status").notNull().default("draft"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check("books_status_chk", sql`${t.status} in ('draft','published','unpublished')`),
+    index("books_status_idx").on(t.status, t.sortOrder),
+  ],
+);
+
 export const videos = pgTable(
   "videos",
   {

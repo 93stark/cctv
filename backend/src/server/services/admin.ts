@@ -2,7 +2,7 @@ import { and, count, desc, eq, gte, ilike, or, sql, sum } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/db";
 import {
-  appSettings, auditLogs, banners, learningResources, manualPaymentProofs, memberships, notifications,
+  appSettings, auditLogs, banners, books, learningResources, manualPaymentProofs, memberships, notifications,
   paymentOrders, paymentTransactions, refunds, supportPlans, userProfiles, users, videos,
 } from "@/db/schema";
 import { audit, type AuditActor } from "../audit";
@@ -178,6 +178,14 @@ export const CONTENT = {
       imageUrl: url, title: z.string().trim().min(1).max(120), description: z.string().trim().max(500).default(""),
       buttonText: z.string().trim().max(30).nullable().optional(), destinationUrl: optUrl, status: status3.default("draft"),
       sortOrder: z.number().int().min(0).max(1000).default(0), startsAt: z.coerce.date().nullable().optional(), endsAt: z.coerce.date().nullable().optional(),
+    }).strict(),
+  },
+  books: {
+    table: books,
+    create: z.object({
+      title: z.string().trim().min(1).max(160), author: z.string().trim().max(120).default(""), description: z.string().trim().max(1000).default(""),
+      coverUrl: optUrl, buyUrl: url, buttonText: z.string().trim().min(1).max(40).default("Buy now"),
+      status: status3.default("draft"), sortOrder: z.number().int().min(0).max(1000).default(0),
     }).strict(),
   },
   videos: {

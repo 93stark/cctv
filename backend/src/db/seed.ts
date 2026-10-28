@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, books, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -65,6 +65,24 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       ],
     })
     .where(and(eq(supportPlans.code, "limited"), eq(supportPlans.durationDays, 30)));
+
+  // Default book (the author's own), added once so the Home screen is not empty. Admin can edit, replace or delete it;
+  // a marker row stops it coming back after a delete.
+  const marker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "books_seeded")).limit(1);
+  if (!marker[0]) {
+    const existing = await db.select({ id: books.id }).from(books).limit(1);
+    if (!existing[0]) {
+      await db.insert(books).values({
+        title: "CCTV Secret & Entrepreneurship",
+        author: "Ali Ansari",
+        buyUrl: "https://www.amazon.in/Cctv-Secret-Entrepreneurship-Ali-Ansari/dp/B0DFTNR7JP",
+        buttonText: "Get the book on Amazon",
+        status: "published",
+        sortOrder: 0,
+      });
+    }
+    await db.insert(appSettings).values({ key: "books_seeded", valueJson: true }).onConflictDoNothing();
+  }
 
   let adminCreated = false;
   const email = opts.adminEmail?.trim().toLowerCase();

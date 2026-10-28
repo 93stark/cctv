@@ -151,6 +151,25 @@ describe("settings, content, plans, memberships (owner)", () => {
     expect(await visible()).toBe(false);
   });
 
+  it("books: admin adds a book with any buy site; draft is hidden, published shows in the home feed", async () => {
+    const { cookie } = await adminLogin();
+    const bad = await call(contentPost, adminReq("POST", "/x", cookie, { title: "X", buyUrl: "javascript:alert(1)" }), { kind: "books" });
+    expect(bad.status).toBe(400);
+    const created = await call(contentPost, adminReq("POST", "/x", cookie, { title: "Second Book Title", author: "A. Writer", buyUrl: "https://shop.example.org/book-2", buttonText: "Buy on Example Shop", status: "draft" }), { kind: "books" });
+    expect(created.status).toBe(201);
+    const viewer = await loginUser("+917999900011");
+    const feed = async () => (await call(homeFeed, req("GET", "/x", { token: viewer.accessToken }))).data;
+    expect(JSON.stringify(await feed())).not.toContain("Second Book Title");
+    await call(contentPut, adminReq("PUT", "/x", cookie, { status: "published", sortOrder: 5 }), { kind: "books", id: created.data.item.id });
+    const f = await feed();
+    const mine = f.books.find((b: any) => b.title === "Second Book Title");
+    expect(mine.buyUrl).toBe("https://shop.example.org/book-2");
+    expect(mine.buttonText).toBe("Buy on Example Shop");
+    // The seeded default book is there too, and older apps still get a single `book`.
+    expect(f.books.some((b: any) => b.title === "CCTV Secret & Entrepreneurship")).toBe(true);
+    expect(f.book.amazonUrl).toContain("amazon.in");
+  });
+
   it("partial update keeps fields that were not sent", async () => {
     const { cookie } = await adminLogin();
     const c = await call(contentPost, adminReq("POST", "/x", cookie, { imageUrl: "https://example.com/k.png", title: "Keep", status: "published", sortOrder: 7 }), { kind: "banners" });

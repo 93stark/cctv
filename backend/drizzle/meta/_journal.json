@@ -15,6 +15,13 @@
       "when": 1792773900000,
       "tag": "0001_pin_4_to_6",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793000000000,
+      "tag": "0002_books",
+      "breakpoints": true
     }
   ]
 }

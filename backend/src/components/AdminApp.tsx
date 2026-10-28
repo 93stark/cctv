@@ -69,6 +69,7 @@ export default function AdminApp() {
     ["memberships", "Memberships", can("memberships.view")],
     ["plans", "Plans", can("plans.manage")],
     ["banners", "Banners", can("content.manage")],
+    ["books", "Books", can("content.manage")],
     ["videos", "Videos", can("content.manage")],
     ["resources", "PDFs & pages", can("content.manage")],
     ["notifications", "Notifications", can("notifications.manage")],
@@ -99,6 +100,7 @@ export default function AdminApp() {
         {tab === "memberships" && <Memberships can={can} />}
         {tab === "plans" && <Plans />}
         {tab === "banners" && <Content kind="banners" />}
+        {tab === "books" && <Content kind="books" />}
         {tab === "videos" && <Content kind="videos" />}
         {tab === "resources" && <Content kind="resources" />}
         {tab === "notifications" && <Content kind="notifications" />}
@@ -373,6 +375,17 @@ const KINDS: Record<string, { title: string; fields: Field[]; summary: (i: Json)
       { key: "imageUrl", label: "Image", type: "image", required: true }, { key: "buttonText", label: "Button text" }, { key: "destinationUrl", label: "Button link (https)" },
       { key: "status", label: "Status", type: "select", options: STATUS }, { key: "sortOrder", label: "Order", type: "number" },
       { key: "startsAt", label: "Show from", type: "datetime" }, { key: "endsAt", label: "Show until", type: "datetime" },
+    ],
+  },
+  books: {
+    title: "Books",
+    summary: (i) => `${i.title}${i.author ? " by " + i.author : ""}`,
+    fields: [
+      { key: "title", label: "Book title", required: true }, { key: "author", label: "Author" },
+      { key: "description", label: "Short description (optional)", type: "textarea" },
+      { key: "coverUrl", label: "Cover image", type: "image" },
+      { key: "buyUrl", label: "Buy link (any website, https)", required: true }, { key: "buttonText", label: "Button text (e.g. Buy on Amazon)", required: true },
+      { key: "status", label: "Status", type: "select", options: STATUS }, { key: "sortOrder", label: "Order (0 = first)", type: "number" },
     ],
   },
   videos: {

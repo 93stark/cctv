@@ -61,7 +61,10 @@ class HomeTab extends ConsumerWidget {
         onRetry: () => ref.invalidate(homeProvider),
         builder: (d) {
           final banners = (d['banners'] as List).cast<Map<String, dynamic>>();
-          final book = Map<String, dynamic>.from(d['book'] as Map);
+          final booksRaw = d['books'];
+          final books = booksRaw is List
+              ? booksRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+              : <Map<String, dynamic>>[if (d['book'] is Map) Map<String, dynamic>.from(d['book'] as Map)];
           final videos = (d['freeVideos'] as List).cast<Map<String, dynamic>>();
           final resources = (d['resources'] as List).cast<Map<String, dynamic>>();
           final promo = (d['promoText'] as String?) ?? '';
@@ -73,7 +76,7 @@ class HomeTab extends ConsumerWidget {
             if (promo.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(promo, style: const TextStyle(color: Color(0xFFFFB703)))),
             if (banners.isNotEmpty) BannerCarousel(banners: banners),
             const SizedBox(height: 16),
-            _BookCard(book: book),
+            for (final b in books) _BookCard(book: b),
             const SizedBox(height: 18),
             _SectionHeader(title: 'Free videos', onMore: () => context.push('/videos')),
             if (videos.isEmpty) const Padding(padding: EdgeInsets.all(8), child: Text('New videos are coming soon.', style: TextStyle(color: Color(0xFF9FB2CC)))),
@@ -163,6 +166,7 @@ class _BookCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cover = book['coverUrl'] as String?;
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(children: [
@@ -174,12 +178,13 @@ class _BookCard extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(book['title'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              Text('by ${book['author'] ?? ''}', style: const TextStyle(color: Color(0xFF9FB2CC))),
+              if (((book['author'] as String?) ?? '').isNotEmpty) Text('by ${book['author']}', style: const TextStyle(color: Color(0xFF9FB2CC))),
+              if (((book['description'] as String?) ?? '').isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(book['description'] as String, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFF9FB2CC)))),
               const SizedBox(height: 10),
               FilledButton.tonal(
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                onPressed: () => openUrl(context, book['amazonUrl'] as String?),
-                child: const Text('Get the book on Amazon'),
+                onPressed: () => openUrl(context, (book['buyUrl'] ?? book['amazonUrl']) as String?),
+                child: Text((book['buttonText'] as String?) ?? 'Get the book on Amazon', textAlign: TextAlign.center),
               ),
             ]),
           ),
