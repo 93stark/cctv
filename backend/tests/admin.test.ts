@@ -188,8 +188,16 @@ describe("settings, content, plans, memberships (owner)", () => {
     expect(mine.items.map((i: any) => i.name)).toEqual(["IP Camera"]);
     expect(mine.items[0]).toMatchObject({ unitPricePaise: 250000, defaultQty: 1, unit: "pcs" });
     const ip = d.items.find((p: any) => p.name === "IP Camera Package");
-    expect(ip.items.map((i: any) => [i.name, i.unitPricePaise / 100])).toContainEqual(["IP Dome Camera", 3400]);
-    expect(ip.items.find((i: any) => i.name === "CAT6 Cable")).toMatchObject({ unit: "meter", unitPricePaise: 3500, defaultQty: 30 });
+    const cam = ip.items.find((i: any) => i.name === "IP Camera");
+    expect(cam.variants.map((v: any) => [v.label, v.unitPricePaise / 100])).toContainEqual(["Dome 2MP", 3400]);
+    expect(ip.items.find((i: any) => i.name === "CAT6 Cable")).toMatchObject({ unit: "meter", defaultQty: 30 });
+    expect(d.items.map((p: any) => p.name)).toEqual(expect.arrayContaining(["HD Camera Package", "Common Items", "Desktop"]));
+    // admin-created variant: inactive ones stay hidden
+    const itemId = mine.items[0].id;
+    await call(contentPost, adminReq("POST", "/x", cookie, { itemId, label: "Big", unitPricePaise: 300000 }), { kind: "quote_variants" });
+    await call(contentPost, adminReq("POST", "/x", cookie, { itemId, label: "Hidden", unitPricePaise: 1, isActive: false }), { kind: "quote_variants" });
+    const mine2 = (await get()).items.find((p: any) => p.id === pid);
+    expect(mine2.items[0].variants.map((v: any) => v.label)).toEqual(["Big"]);
     expect(d.orderWhatsapp).toBe("+917797493140");
     expect((await call(quotePkgs, req("GET", "/x"))).status).toBe(401);
   });

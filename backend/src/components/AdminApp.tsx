@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 type Me = { email: string; role: string; permissions: string[] };
 type Json = any;
@@ -519,12 +519,17 @@ function Content({ kind }: { kind: string }) {
 function Quotes() {
   const pk = useLoad("/content/quote_packages");
   const it = useLoad("/content/quote_items");
+  const vr = useLoad("/content/quote_variants");
   const a = useAction();
+  const [vOpen, setVOpen] = useState<string | null>(null);
+  const [vf, setVf] = useState<Json>({ label: "", price: "" });
+  const [vEd, setVEd] = useState<Record<string, Json>>({});
+  const variants = (id: string): Json[] => (vr.data?.items ?? []).filter((v: Json) => v.itemId === id).sort((x: Json, y: Json) => x.sortOrder - y.sortOrder);
   const [open, setOpen] = useState<string | null>(null);
   const [pf, setPf] = useState<Json | null>(null);
   const [nf, setNf] = useState<Json>({ name: "", price: "", qty: "1", unit: "pcs" });
   const [ed, setEd] = useState<Record<string, Json>>({});
-  const reload = () => { pk.reload(); it.reload(); };
+  const reload = () => { pk.reload(); it.reload(); vr.reload(); };
   const items = (id: string): Json[] => (it.data?.items ?? []).filter((i: Json) => i.packageId === id).sort((x: Json, y: Json) => x.sortOrder - y.sortOrder);
   const total = (id: string) => items(id).filter((i) => i.isActive).reduce((t: number, i: Json) => t + i.unitPricePaise * i.defaultQty, 0);
 
@@ -532,7 +537,7 @@ function Quotes() {
     <>
       <h1>GEN · Quotation packages</h1>
       <p style={{ color: "var(--muted)" }}>Each published package appears in the app's GEN tab. Prices are per unit in ₹. Items with price 0 should be priced before publishing.</p>
-      {(pk.error || it.error) && <div className="msg err">{pk.error || it.error}</div>}
+      {(pk.error || it.error || vr.error) && <div className="msg err">{pk.error || it.error}</div>}
       {a.el}
       {pf ? (
         <div className="card">
@@ -563,13 +568,14 @@ function Quotes() {
           {open === p.id && (
             <div className="scroll">
               <table className="tbl">
-                <thead><tr><th>Item</th><th>Image</th><th>Unit</th><th>Price ₹</th><th>Default qty</th><th>Active</th><th /></tr></thead>
+                <thead><tr><th>Item</th><th>Image</th><th>Unit</th><th>Price ₹ (no variants)</th><th>Default qty</th><th>Active</th><th /></tr></thead>
                 <tbody>
                   {items(p.id).map((i: Json) => {
                     const e = ed[i.id] ?? { name: i.name, unit: i.unit, imageUrl: i.imageUrl ?? "", price: String(i.unitPricePaise / 100), qty: String(i.defaultQty), isActive: i.isActive };
                     const set = (k: string, v: unknown) => setEd({ ...ed, [i.id]: { ...e, [k]: v } });
                     return (
-                      <tr key={i.id}>
+                      <React.Fragment key={i.id}>
+                      <tr>
                         <td><input value={e.name} onChange={(x) => set("name", x.target.value)} /></td>
                         <td>
                           {e.imageUrl && <img src={e.imageUrl} alt="" style={{ height: 36, borderRadius: 6, display: "block" }} />}
@@ -594,9 +600,41 @@ function Quotes() {
                             const body = { name: e.name, imageUrl: e.imageUrl || null, unit: e.unit, unitPricePaise: Math.round(Number(e.price) * 100), defaultQty: Number(e.qty) || 0, isActive: !!e.isActive };
                             if (await a.run(() => api(`/content/quote_items/${i.id}`, "PUT", body), "Saved.")) { setEd({ ...ed, [i.id]: undefined as never }); reload(); }
                           }}>Save</button>
+                          <button className="ghost" onClick={() => setVOpen(vOpen === i.id ? null : i.id)}>Variants ({variants(i.id).length})</button>
                           <button className="ghost" onClick={async () => { if (window.confirm("Delete this item?") && (await a.run(() => api(`/content/quote_items/${i.id}`, "DELETE"), "Deleted."))) reload(); }}>Delete</button>
                         </td>
                       </tr>
+                      {vOpen === i.id && (
+                        <tr>
+                          <td colSpan={7} style={{ background: "rgba(37,99,235,.08)" }}>
+                            <b>Variants of {i.name}</b> <span style={{ color: "var(--muted)" }}>(e.g. 4 Channel, 1TB, Dome 2MP). If an item has variants, the customer must pick one and its price is used.</span>
+                            {variants(i.id).map((v: Json) => {
+                              const ve = vEd[v.id] ?? { label: v.label, price: String(v.unitPricePaise / 100), isActive: v.isActive };
+                              const vset = (k: string, val: unknown) => setVEd({ ...vEd, [v.id]: { ...ve, [k]: val } });
+                              return (
+                                <div className="row" key={v.id} style={{ marginTop: 6 }}>
+                                  <input value={ve.label} onChange={(x) => vset("label", x.target.value)} />
+                                  <input style={{ width: 110 }} type="number" min="0" step="0.01" value={ve.price} onChange={(x) => vset("price", x.target.value)} />
+                                  <label><input style={{ width: "auto" }} type="checkbox" checked={!!ve.isActive} onChange={(x) => vset("isActive", x.target.checked)} /> Active</label>
+                                  <button disabled={a.busy} onClick={async () => {
+                                    if (await a.run(() => api(`/content/quote_variants/${v.id}`, "PUT", { label: ve.label, unitPricePaise: Math.round(Number(ve.price) * 100), isActive: !!ve.isActive }), "Saved.")) { setVEd({ ...vEd, [v.id]: undefined as never }); reload(); }
+                                  }}>Save</button>
+                                  <button className="ghost" onClick={async () => { if (window.confirm("Delete this variant?") && (await a.run(() => api(`/content/quote_variants/${v.id}`, "DELETE"), "Deleted."))) reload(); }}>Delete</button>
+                                </div>
+                              );
+                            })}
+                            <div className="row" style={{ marginTop: 8 }}>
+                              <input placeholder="New variant (e.g. 8 Channel)" value={vf.label} onChange={(x) => setVf({ ...vf, label: x.target.value })} />
+                              <input style={{ width: 110 }} type="number" min="0" step="0.01" placeholder="Price ₹" value={vf.price} onChange={(x) => setVf({ ...vf, price: x.target.value })} />
+                              <button disabled={a.busy || !vf.label.trim()} onClick={async () => {
+                                const body = { itemId: i.id, label: vf.label, unitPricePaise: Math.round(Number(vf.price) * 100) || 0, sortOrder: variants(i.id).length };
+                                if (await a.run(() => api("/content/quote_variants", "POST", body), "Variant added.")) { setVf({ label: "", price: "" }); reload(); }
+                              }}>Add variant</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                   <tr>

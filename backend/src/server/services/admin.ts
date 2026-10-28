@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Db } from "@/db";
 import {
   appSettings, auditLogs, banners, books, learningResources, manualPaymentProofs, memberships, notifications,
-  paymentOrders, paymentTransactions, quoteItems, quotePackages, refunds, supportPlans, userProfiles, users, videos,
+  paymentOrders, paymentTransactions, quoteItems, quotePackages, quoteVariants, refunds, supportPlans, userProfiles, users, videos,
 } from "@/db/schema";
 import { audit, type AuditActor } from "../audit";
 import { ApiError } from "../http";
@@ -202,6 +202,13 @@ export const CONTENT = {
       imageUrl: optUrl, unit: z.string().trim().min(1).max(20).default("pcs"), unitPricePaise: z.number().int().min(0).max(100_000_000),
       defaultQty: z.number().int().min(0).max(1000).default(1), sortOrder: z.number().int().min(0).max(1000).default(0),
       isActive: z.boolean().default(true),
+    }).strict(),
+  },
+  quote_variants: {
+    table: quoteVariants,
+    create: z.object({
+      itemId: z.string().uuid(), label: z.string().trim().min(1).max(80), unitPricePaise: z.number().int().min(0).max(100_000_000),
+      sortOrder: z.number().int().min(0).max(1000).default(0), isActive: z.boolean().default(true),
     }).strict(),
   },
   videos: {

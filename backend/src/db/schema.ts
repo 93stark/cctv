@@ -213,6 +213,24 @@ export const quoteItems = pgTable(
   ],
 );
 
+export const quoteVariants = pgTable(
+  "quote_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => quoteItems.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    unitPricePaise: integer("unit_price_paise").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check("quote_variants_price_chk", sql`${t.unitPricePaise} >= 0`),
+    index("quote_variants_item_idx").on(t.itemId, t.sortOrder),
+  ],
+);
+
 export const videos = pgTable(
   "videos",
   {

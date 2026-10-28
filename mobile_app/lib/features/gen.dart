@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,7 +8,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../providers.dart';
 import 'widgets.dart';
 
 /// One line of a quotation. Money is kept in integer paise, so totals never have rounding drift.
@@ -35,7 +32,7 @@ class Quotation {
 }
 
 final _inr = NumberFormat.decimalPattern('en_IN');
-String _money(int paise) {
+String money(int paise) {
   final r = paise / 100;
   return r == r.roundToDouble() ? _inr.format(r.toInt()) : NumberFormat('#,##,##0.00', 'en_IN').format(r);
 }
@@ -56,11 +53,11 @@ String quotationText(Quotation q) {
     ..writeln();
   var n = 1;
   for (final l in q.lines) {
-    b.writeln('${n++}. ${l.name} - ${l.qty} x Rs.${_money(l.unitPaise)} = Rs.${_money(l.totalPaise)}');
+    b.writeln('${n++}. ${l.name} - ${l.qty} x Rs.${money(l.unitPaise)} = Rs.${money(l.totalPaise)}');
   }
   b
     ..writeln()
-    ..writeln('*Grand Total: Rs.${_money(q.grandPaise)}*')
+    ..writeln('*Grand Total: Rs.${money(q.grandPaise)}*')
     ..writeln()
     ..write('Please confirm availability and the final order.');
   return b.toString();
@@ -120,8 +117,8 @@ Future<Uint8List> buildQuotationPdf(Quotation q) async {
                 cell('${i + 1}'),
                 cell(_latin(q.lines[i].name)),
                 cell('${q.lines[i].qty}', align: pw.TextAlign.center),
-                cell('Rs. ${_money(q.lines[i].unitPaise)}', align: pw.TextAlign.right),
-                cell('Rs. ${_money(q.lines[i].totalPaise)}', align: pw.TextAlign.right),
+                cell('Rs. ${money(q.lines[i].unitPaise)}', align: pw.TextAlign.right),
+                cell('Rs. ${money(q.lines[i].totalPaise)}', align: pw.TextAlign.right),
               ]),
           ],
         ),
@@ -131,7 +128,7 @@ Future<Uint8List> buildQuotationPdf(Quotation q) async {
           child: pw.Container(
             padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFEFF4FF)),
-            child: pw.Text('Grand Total: Rs. ${_money(q.grandPaise)}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: blue)),
+            child: pw.Text('Grand Total: Rs. ${money(q.grandPaise)}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: blue)),
           ),
         ),
         pw.SizedBox(height: 24),
@@ -147,166 +144,6 @@ Future<File> writeQuotationPdf(Quotation q) async {
   final dir = await getTemporaryDirectory();
   final f = File('${dir.path}/Quotation_${q.number}.pdf');
   return f.writeAsBytes(bytes, flush: true);
-}
-
-class GenTab extends ConsumerStatefulWidget {
-  const GenTab({super.key});
-  @override
-  ConsumerState<GenTab> createState() => _GenTabState();
-}
-
-class _GenTabState extends ConsumerState<GenTab> {
-  String? _pkgId;
-  final Map<String, int> _qty = {};
-  final _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _select(Map<String, dynamic> pkg) {
-    _pkgId = pkg['id'] as String;
-    _qty.clear();
-    for (final i in (pkg['items'] as List).cast<Map<String, dynamic>>()) {
-      _qty[i['id'] as String] = (i['defaultQty'] as num?)?.toInt() ?? 1;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final value = ref.watch(quotePackagesProvider);
-    return RefreshIndicator(
-      onRefresh: () async => ref.refresh(quotePackagesProvider.future),
-      child: AsyncBody<Map<String, dynamic>>(
-        value: value,
-        onRetry: () => ref.invalidate(quotePackagesProvider),
-        builder: (d) {
-          final pkgs = (d['items'] as List).cast<Map<String, dynamic>>();
-          if (pkgs.isEmpty) {
-            return ListView(padding: const EdgeInsets.all(24), children: const [
-              SizedBox(height: 80),
-              Icon(Icons.receipt_long_outlined, size: 56),
-              SizedBox(height: 12),
-              Text('No packages yet', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              SizedBox(height: 6),
-              Text('Quotation packages will appear here once they are published. Pull down to refresh.', textAlign: TextAlign.center),
-            ]);
-          }
-          Map<String, dynamic> pkg = pkgs.firstWhere((p) => p['id'] == _pkgId, orElse: () => pkgs.first);
-          if (pkg['id'] != _pkgId) _select(pkg);
-          final items = (pkg['items'] as List).cast<Map<String, dynamic>>();
-          int qtyOf(Map<String, dynamic> i) => _qty[i['id']] ?? 0;
-          final grand = items.fold<int>(0, (t, i) => t + qtyOf(i) * (i['unitPricePaise'] as num).toInt());
-          final scheme = Theme.of(context).colorScheme;
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              Text('Quotation Generator', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text('Pick a package, set quantities and get a ready quotation.', style: TextStyle(color: scheme.onSurfaceVariant)),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final p in pkgs)
-                    ChoiceChip(
-                      label: Text(p['name'] as String),
-                      selected: p['id'] == pkg['id'],
-                      onSelected: (_) => setState(() => _select(p)),
-                    ),
-                ],
-              ),
-              if ((pkg['description'] as String? ?? '').isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(pkg['description'] as String, style: TextStyle(color: scheme.onSurfaceVariant)),
-              ],
-              const SizedBox(height: 12),
-              TextField(controller: _name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Customer name (optional)', prefixIcon: Icon(Icons.person_outline))),
-              const SizedBox(height: 12),
-              for (final i in items)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: SizedBox(
-                              width: 54,
-                              height: 54,
-                              child: (i['imageUrl'] as String?)?.isNotEmpty == true
-                                  ? CachedNetworkImage(imageUrl: i['imageUrl'] as String, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.videocam_outlined, size: 28))
-                                  : ColoredBox(color: scheme.surfaceContainerHighest, child: const Icon(Icons.videocam_outlined, size: 28)),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(i['name'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text('Rs. ${_money((i['unitPricePaise'] as num).toInt())} / ${i['unit']}', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
-                            if (qtyOf(i) > 0) Text('Rs. ${_money(qtyOf(i) * (i['unitPricePaise'] as num).toInt())}', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600)),
-                          ]),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: qtyOf(i) > 0 ? () => setState(() => _qty[i['id'] as String] = qtyOf(i) - 1) : null,
-                          icon: const Icon(Icons.remove),
-                          tooltip: 'Less',
-                        ),
-                        SizedBox(width: 36, child: Text('${qtyOf(i)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-                        IconButton.filledTonal(
-                          onPressed: qtyOf(i) < 999 ? () => setState(() => _qty[i['id'] as String] = qtyOf(i) + 1) : null,
-                          icon: const Icon(Icons.add),
-                          tooltip: 'More',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Estimated total', style: TextStyle(fontSize: 15)),
-                Text('Rs. ${_money(grand)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: scheme.primary)),
-              ]),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: grand <= 0 && items.every((i) => qtyOf(i) == 0)
-                    ? null
-                    : () {
-                        final lines = [
-                          for (final i in items)
-                            if (qtyOf(i) > 0) QuoteLine(i['name'] as String, i['unit'] as String? ?? 'pcs', qtyOf(i), (i['unitPricePaise'] as num).toInt()),
-                        ];
-                        final now = DateTime.now();
-                        final company = ((d['company'] as Map?)?['name'] as String?) ?? 'Silicon Corporation';
-                        final q = Quotation(
-                          company: company,
-                          packageName: pkg['name'] as String,
-                          customer: _name.text.trim(),
-                          lines: lines,
-                          number: 'Q${DateFormat('yyMMdd-HHmm').format(now)}',
-                          date: now,
-                        );
-                        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => QuotationPreviewScreen(quotation: q, orderWhatsapp: d['orderWhatsapp'] as String?)));
-                      },
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('Generate Quotation'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
 
 class QuotationPreviewScreen extends StatefulWidget {
@@ -389,14 +226,14 @@ class _QuotationPreviewScreenState extends State<QuotationPreviewScreen> {
                             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Expanded(flex: 5, child: Text(l.name)),
                               SizedBox(width: 30, child: Text('${l.qty}', textAlign: TextAlign.center)),
-                              Expanded(flex: 3, child: Text(_money(l.unitPaise), textAlign: TextAlign.right)),
-                              Expanded(flex: 3, child: Text(_money(l.totalPaise), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
+                              Expanded(flex: 3, child: Text(money(l.unitPaise), textAlign: TextAlign.right)),
+                              Expanded(flex: 3, child: Text(money(l.totalPaise), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
                             ]),
                           ),
                         const Divider(height: 24),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           const Text('Grand Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                          Text('₹${_money(q.grandPaise)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: scheme.primary)),
+                          Text('₹${money(q.grandPaise)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: scheme.primary)),
                         ]),
                       ]),
                     ),

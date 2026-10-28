@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers.dart';
 import 'account.dart';
-import 'gen.dart';
+import 'gen_tab.dart';
 import 'learn.dart';
 import 'support.dart';
 import 'widgets.dart';

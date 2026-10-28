@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItems, quotePackages, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -138,6 +138,66 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       await db.update(quotePackages).set({ status: "published" }).where(eq(quotePackages.id, pkg.id));
     }
     await db.insert(appSettings).values({ key: "quotes_rates_v2", valueJson: true }).onConflictDoNothing();
+  }
+
+  // Sample packages with variants (v3), once. IP/HD are rebuilt only if the admin never edited them; Common/Desktop are added.
+  const v3Marker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_variants_v3")).limit(1);
+  if (!v3Marker[0]) {
+    type It = { name: string; unit?: string; qty?: number; variants: [string, number][] };
+    const ch = (a: number, b: number, c: number): [string, number][] => [["4 Channel", a], ["8 Channel", b], ["16 Channel", c]];
+    const hdd: [string, number][] = [["500GB", 2200], ["1TB", 3000], ["2TB", 4500], ["4TB", 7500]];
+    const SAMPLE: Record<string, It[]> = {
+      "IP Camera Package": [
+        { name: "IP Camera", variants: [["Dome 2MP", 3400], ["Bullet 2MP", 3500], ["Dome 5MP", 4800], ["Bullet 5MP", 4900]] },
+        { name: "NVR", variants: ch(4500, 6500, 9500) },
+        { name: "PoE Switch", variants: [["4 Port Normal", 1800], ["8 Port Normal", 3000], ["16 Port Normal", 5500], ["8 Port Gigabit", 4200]] },
+        { name: "Hard Disk", variants: hdd },
+        { name: "CAT6 Cable", unit: "meter", qty: 30, variants: [["Per meter", 35]] },
+      ],
+      "HD Camera Package": [
+        { name: "HD Camera", variants: [["Dome", 1200], ["Bullet", 1200]] },
+        { name: "DVR", variants: ch(4200, 6000, 9000) },
+        { name: "SMPS", variants: ch(400, 700, 1200) },
+        { name: "Hard Disk", variants: hdd },
+        { name: "3+1 Coaxial Cable", unit: "meter", qty: 30, variants: [["Per meter", 20]] },
+      ],
+      "Common Items": [
+        { name: "Monitor", variants: [["15 inch", 3800], ["18.5 inch", 4800], ["22 inch", 6500], ["24 inch", 7500]] },
+        { name: "Hard Disk", variants: hdd },
+        { name: "UPS", variants: [["600VA", 2200], ["1KVA", 4500]] },
+        { name: "Router", variants: [["SIM based", 2500], ["WiFi", 1200]] },
+      ],
+      "Desktop": [
+        { name: "Desktop Computer", variants: [["Basic", 18000], ["Standard", 25000], ["Advanced", 38000]] },
+        { name: "Monitor", variants: [["18.5 inch", 4800], ["22 inch", 6500], ["24 inch", 7500]] },
+        { name: "Keyboard & Mouse", variants: [["Wired", 600], ["Wireless", 1100]] },
+        { name: "UPS", variants: [["600VA", 2200], ["1KVA", 4500]] },
+      ],
+    };
+    const v2: Record<string, number> = { "HD Bullet Camera": 1200, "HD Dome Camera": 1200, DVR: 4200, SMPS: 400, "Hard Disk 500GB": 2200, "3+1 Coaxial Cable": 20, "IP Dome Camera": 3400, "IP Bullet Camera": 3500, NVR: 4500, "PoE Switch 4 Channel": 1800, "CAT6 Cable": 35 };
+    const build = async (pkgId: string, items: It[]) => {
+      for (const [k, it] of items.entries()) {
+        const [row] = await db.insert(quoteItems).values({ packageId: pkgId, name: it.name, unit: it.unit ?? "pcs", defaultQty: it.qty ?? 1, unitPricePaise: 0, sortOrder: k }).returning();
+        await db.insert(quoteVariants).values(it.variants.map(([label, rs], n) => ({ itemId: row.id, label, unitPricePaise: rs * 100, sortOrder: n })));
+      }
+    };
+    let order = 0;
+    for (const [name, items] of Object.entries(SAMPLE)) {
+      const [pkg] = await db.select().from(quotePackages).where(eq(quotePackages.name, name)).limit(1);
+      if (pkg) {
+        const old = await db.select().from(quoteItems).where(eq(quoteItems.packageId, pkg.id));
+        if (old.every((o) => v2[o.name] !== undefined && v2[o.name] * 100 === o.unitPricePaise)) {
+          await db.delete(quoteItems).where(eq(quoteItems.packageId, pkg.id));
+          await build(pkg.id, items);
+          await db.update(quotePackages).set({ status: "published", sortOrder: order }).where(eq(quotePackages.id, pkg.id));
+        }
+      } else if (name === "Common Items" || name === "Desktop") {
+        const [created] = await db.insert(quotePackages).values({ name, status: "published", sortOrder: order }).returning();
+        await build(created.id, items);
+      }
+      order++;
+    }
+    await db.insert(appSettings).values({ key: "quotes_variants_v3", valueJson: true }).onConflictDoNothing();
   }
 
   let adminCreated = false;
