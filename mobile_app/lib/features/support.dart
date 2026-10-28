@@ -10,24 +10,123 @@ class SupportTab extends ConsumerWidget {
   const SupportTab({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return RefreshIndicator(
-      onRefresh: () async => ref.refresh(membershipProvider.future),
-      child: AsyncBody<Map<String, dynamic>?>(
-        value: ref.watch(membershipProvider),
-        onRetry: () => ref.invalidate(membershipProvider),
-        builder: (m) => ListView(padding: const EdgeInsets.all(16), children: [
-          const Text('Support', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
-          if (m == null) ...[
-            const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Get direct WhatsApp support for your CCTV questions with a one-time Support plan. No subscription.'))),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: () => context.push('/plans'), child: const Text('See support plans')),
-          ] else
-            MembershipCard(membership: m),
-          const SizedBox(height: 10),
-          OutlinedButton(onPressed: () => context.push('/history'), child: const Text('Payment history')),
-        ]),
+    return AsyncBody<Map<String, dynamic>?>(
+      value: ref.watch(membershipProvider),
+      onRetry: () => ref.invalidate(membershipProvider),
+      builder: (m) => m == null
+          ? Column(children: [
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async => ref.refresh(membershipProvider.future),
+                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), children: [
+                    const _SupportHero(),
+                    const SizedBox(height: 22),
+                    const Text('Support advantages', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 12),
+                    for (final a in _advantages) _AdvantageCard(item: a),
+                    const SizedBox(height: 4),
+                    OutlinedButton(onPressed: () => context.push('/history'), child: const Text('Payment history')),
+                  ]),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: const BoxDecoration(color: Color(0xFF101C2F), border: Border(top: BorderSide(color: Color(0xFF22364F)))),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFB703), foregroundColor: const Color(0xFF1A1200)),
+                  onPressed: () => context.push('/plans'),
+                  child: const Text('Get Support Now', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ])
+          : RefreshIndicator(
+              onRefresh: () async => ref.refresh(membershipProvider.future),
+              child: ListView(padding: const EdgeInsets.all(16), children: [
+                const Text('Support', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                MembershipCard(membership: m),
+                const SizedBox(height: 10),
+                OutlinedButton(onPressed: () => context.push('/history'), child: const Text('Payment history')),
+              ]),
+            ),
+    );
+  }
+}
+
+class _Advantage {
+  const _Advantage(this.icon, this.title, this.text);
+  final IconData icon;
+  final String title;
+  final String text;
+}
+
+const _advantages = [
+  _Advantage(Icons.chat, 'Direct WhatsApp support', 'Tap once and chat with our team. Your name, plan and reference are filled in for you.'),
+  _Advantage(Icons.schedule, 'Replies within 24 working hours', 'Monday to Saturday, 10 AM to 6 PM. Ask about the book and CCTV learning.'),
+  _Advantage(Icons.school, 'Learn and start earning', 'Help with choosing cameras, installation, troubleshooting and starting your own CCTV business.'),
+  _Advantage(Icons.payments, 'One-time payment', 'Pay once. No subscription and no auto-renewal. Choose 1000 days or Lifetime.'),
+  _Advantage(Icons.verified_user, 'Safe and verified', 'Pay with any UPI app. Your plan activates after our team verifies the payment.'),
+];
+
+class _SupportHero extends StatelessWidget {
+  const _SupportHero();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 190,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF1D8CF0), Color(0xFF0B3A75)]),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(children: [
+        Positioned(right: -18, top: -14, child: Icon(Icons.support_agent, size: 150, color: Colors.white.withOpacity(0.10))),
+        Positioned(left: -24, bottom: -30, child: Icon(Icons.videocam, size: 120, color: Colors.white.withOpacity(0.07))),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.16), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white24)),
+              child: const Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('CCTV Expert Support', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
+                SizedBox(height: 6),
+                Text('Get your CCTV doubts solved directly on WhatsApp. One-time plan, no monthly charges.', style: TextStyle(fontSize: 14, color: Colors.white, height: 1.35)),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AdvantageCard extends StatelessWidget {
+  const _AdvantageCard({required this.item});
+  final _Advantage item;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: const Color(0xFF14233A), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF22364F))),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: const Color(0xFF1D8CF0).withOpacity(0.18), shape: BoxShape.circle),
+          child: Icon(item.icon, color: const Color(0xFF5BB4FF)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(item.text, style: const TextStyle(fontSize: 13.5, color: Color(0xFF9FB2CC), height: 1.35)),
+          ]),
+        ),
+      ]),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,10 +10,33 @@ import '../core/format.dart';
 import '../providers.dart';
 import 'widgets.dart';
 
-class PlansScreen extends ConsumerWidget {
+class PlansScreen extends ConsumerStatefulWidget {
   const PlansScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlansScreen> createState() => _PlansScreenState();
+}
+
+class _PlansScreenState extends ConsumerState<PlansScreen> {
+  String? _selected;
+  bool _agreed = false;
+  late final TapGestureRecognizer _termsTap;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsTap = TapGestureRecognizer()..onTap = () => _showInfo(context);
+  }
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    super.dispose();
+  }
+
+  bool _blocked(Map<String, dynamic>? member, Map<String, dynamic> p) => member != null && (member['isLifetime'] == true || p['isLifetime'] != true);
+
+  @override
+  Widget build(BuildContext context) {
     final member = ref.watch(membershipProvider).valueOrNull;
     return Scaffold(
       appBar: AppBar(title: const Text('Support plans')),
@@ -20,38 +44,154 @@ class PlansScreen extends ConsumerWidget {
         child: AsyncBody<List<dynamic>>(
           value: ref.watch(plansProvider),
           onRetry: () => ref.invalidate(plansProvider),
-          builder: (plans) => ListView(padding: const EdgeInsets.all(16), children: [
-            const Text('One-time payment. No subscription, no auto-renewal.', style: TextStyle(color: Color(0xFF9FB2CC))),
-            const SizedBox(height: 4),
-            TextButton.icon(onPressed: () => _showInfo(context), icon: const Icon(Icons.info_outline, size: 18), label: const Text('What do Limited and Lifetime mean? Terms, privacy and refunds')),
-            const SizedBox(height: 4),
-            for (final p in plans.cast<Map<String, dynamic>>())
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(child: Text(p['name'] as String, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
-                      Text(p['priceDisplay'] as String, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFFFFB703))),
-                    ]),
-                    const SizedBox(height: 4),
-                    Text(p['isLifetime'] == true ? 'One time, no expiry' : 'One time, valid for ${p['durationDays']} days', style: const TextStyle(color: Color(0xFF9FB2CC))),
-                    const SizedBox(height: 10),
-                    for (final b in (p['benefits'] as List)) Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.check_circle, size: 18, color: Color(0xFF2FB26B)), const SizedBox(width: 8), Expanded(child: Text(b as String))])),
-                    if ((p['terms'] as String).isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(p['terms'] as String, style: const TextStyle(fontSize: 12, color: Color(0xFF9FB2CC)))),
-                    const SizedBox(height: 14),
-                    FilledButton(
-                      onPressed: (member != null && (member['isLifetime'] == true || p['isLifetime'] != true)) ? null : () => context.push('/checkout', extra: p),
-                      child: Text(member != null && (member['isLifetime'] == true || p['isLifetime'] != true) ? 'Already active' : 'Buy ${p['name']}'),
+          builder: (raw) {
+            final plans = raw.cast<Map<String, dynamic>>();
+            Map<String, dynamic>? chosen;
+            for (final p in plans) {
+              if (p['code'] == _selected && !_blocked(member, p)) chosen = p;
+            }
+            if (chosen == null) {
+              for (final p in plans) {
+                if (!_blocked(member, p)) {
+                  chosen = p;
+                  break;
+                }
+              }
+            }
+            return Column(children: [
+              Expanded(
+                child: ListView(padding: const EdgeInsets.all(16), children: [
+                  const Text('One-time payment. No subscription, no auto-renewal.', style: TextStyle(color: Color(0xFF9FB2CC))),
+                  const SizedBox(height: 14),
+                  for (final p in plans)
+                    _PlanCard(
+                      plan: p,
+                      selected: chosen != null && chosen['code'] == p['code'],
+                      blocked: _blocked(member, p),
+                      onTap: () => setState(() => _selected = p['code'] as String),
+                    ),
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 6, 16, 12),
+                decoration: const BoxDecoration(color: Color(0xFF101C2F), border: Border(top: BorderSide(color: Color(0xFF22364F)))),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    Checkbox(value: _agreed, onChanged: (v) => setState(() => _agreed = v ?? false)),
+                    Expanded(
+                      child: Text.rich(TextSpan(style: const TextStyle(fontSize: 13.5), children: [
+                        const TextSpan(text: 'I read and agree to the '),
+                        TextSpan(text: 'Terms, Privacy & Refund policy', style: const TextStyle(color: Color(0xFF5BB4FF), decoration: TextDecoration.underline), recognizer: _termsTap),
+                      ])),
                     ),
                   ]),
-                ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFFB703), foregroundColor: const Color(0xFF1A1200)),
+                      onPressed: (chosen != null && _agreed) ? () => context.push('/checkout', extra: chosen) : null,
+                      child: Text(chosen == null ? 'Already active' : 'Buy Now  ${chosen['priceDisplay']}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ]),
               ),
+            ]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({required this.plan, required this.selected, required this.blocked, required this.onTap});
+  final Map<String, dynamic> plan;
+  final bool selected;
+  final bool blocked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final lifetime = plan['isLifetime'] == true;
+    final days = plan['durationDays'];
+    final unit = lifetime ? '/Lifetime' : '/$days days';
+    final headline = lifetime ? 'WhatsApp support with no expiry' : 'WhatsApp support for $days days';
+    final validity = lifetime
+        ? 'Validity: Service is valid for as long as this support service runs'
+        : 'Validity: Service is valid for $days days (about ${((days as num) / 365).toStringAsFixed(1)} years)';
+    final benefits = (plan['benefits'] as List).cast<String>();
+    return Opacity(
+      opacity: blocked ? 0.55 : 1,
+      child: GestureDetector(
+        onTap: blocked ? null : onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? const Color(0xFF1D8CF0) : const Color(0xFF22364F), width: selected ? 2 : 1),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [
+            Container(
+              color: const Color(0xFF1B2D47),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, right: 12),
+                  child: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? const Color(0xFF1D8CF0) : const Color(0xFF9FB2CC)),
+                ),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text.rich(TextSpan(children: [
+                      TextSpan(text: plan['priceDisplay'] as String, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
+                      TextSpan(text: unit, style: const TextStyle(fontSize: 17, color: Color(0xFF9FB2CC))),
+                    ])),
+                    const SizedBox(height: 2),
+                    Text(headline, style: const TextStyle(fontSize: 15, color: Color(0xFF5BB4FF), fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+                if (blocked)
+                  const _Badge(text: 'ACTIVE', color: Color(0xFF2FB26B))
+                else if (lifetime)
+                  const _Badge(text: 'BEST VALUE', color: Color(0xFFFFB703)),
+              ]),
+            ),
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF14233A),
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(validity, style: const TextStyle(fontSize: 14.5, height: 1.35)),
+                const SizedBox(height: 8),
+                for (final b in benefits.skip(1))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.check_circle, size: 16, color: Color(0xFF2FB26B)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(b, style: const TextStyle(fontSize: 13, color: Color(0xFF9FB2CC)))),
+                    ]),
+                  ),
+              ]),
+            ),
           ]),
         ),
       ),
     );
   }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text, required this.color});
+  final String text;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: color.withOpacity(0.18), borderRadius: BorderRadius.circular(6), border: Border.all(color: color)),
+        child: Text(text, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: color)),
+      );
 }
 
 void _showInfo(BuildContext context) {
