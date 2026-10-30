@@ -146,6 +146,8 @@ Future<File> writeQuotationPdf(Quotation q) async {
   return f.writeAsBytes(bytes, flush: true);
 }
 
+const _showOrder = false;
+
 class QuotationPreviewScreen extends StatefulWidget {
   const QuotationPreviewScreen({super.key, required this.quotation, required this.orderWhatsapp});
   final Quotation quotation;
@@ -246,9 +248,12 @@ class _QuotationPreviewScreenState extends State<QuotationPreviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
               child: Row(children: [
-                Expanded(child: OutlinedButton.icon(style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)), onPressed: _busy ? null : _share, icon: const Icon(Icons.share), label: const Text('Share'))),
-                const SizedBox(width: 12),
-                Expanded(child: FilledButton.icon(onPressed: _busy ? null : _order, icon: const Icon(Icons.shopping_cart_checkout), label: const Text('Order'))),
+                Expanded(child: FilledButton.icon(onPressed: _busy ? null : _share, icon: const Icon(Icons.share), label: const Text('Share Local Vendor'))),
+                // The WhatsApp "Order" button is hidden for now; flip _showOrder to bring it back.
+                if (_showOrder) ...[
+                  const SizedBox(width: 12),
+                  Expanded(child: OutlinedButton.icon(style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)), onPressed: _busy ? null : _order, icon: const Icon(Icons.shopping_cart_checkout), label: const Text('Order'))),
+                ],
               ]),
             ),
           ],
