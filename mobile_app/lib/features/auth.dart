@@ -48,7 +48,7 @@ class _LoginState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 16),
           const Text('Welcome', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          const Text('Enter your mobile number. We will send a verification code on WhatsApp.', style: TextStyle(color: Color(0xFF9FB2CC))),
+          const Text('Enter your mobile number. We will send a verification code by SMS.', style: TextStyle(color: Color(0xFF9FB2CC))),
           const SizedBox(height: 28),
           TextField(
             controller: _mobile,
@@ -62,6 +62,8 @@ class _LoginState extends ConsumerState<LoginScreen> {
           FilledButton(onPressed: _busy ? null : _send, child: _busy ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Send code')),
           const SizedBox(height: 18),
           const Text('By continuing you agree to the Terms and Privacy Policy.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF9FB2CC))),
+          const SizedBox(height: 24),
+          const BrandFooter(),
         ]),
       ),
     );
@@ -142,7 +144,7 @@ class _OtpState extends ConsumerState<OtpScreen> {
         child: ListView(padding: const EdgeInsets.all(24), children: [
           const Text('Verify your number', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Text('Enter the code sent to ${widget.mobile} on WhatsApp.', style: const TextStyle(color: Color(0xFF9FB2CC))),
+          Text('Enter the code sent to ${widget.mobile} by SMS.', style: const TextStyle(color: Color(0xFF9FB2CC))),
           const SizedBox(height: 24),
           TextField(
             controller: _code,

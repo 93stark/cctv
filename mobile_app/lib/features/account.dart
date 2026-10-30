@@ -57,6 +57,7 @@ class AccountTab extends ConsumerWidget {
           }
         },
       ),
+      const BrandFooter(),
     ]);
   }
 }
