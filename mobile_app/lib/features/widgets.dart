@@ -66,7 +66,7 @@ class BrandFooter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('Developed with ', style: TextStyle(color: muted, fontSize: 13)),
+          Text('Developed ', style: TextStyle(color: muted, fontSize: 13)),
           const Icon(Icons.favorite, color: Color(0xFFE53935), size: 15),
           Text(' by', style: TextStyle(color: muted, fontSize: 13)),
         ]),

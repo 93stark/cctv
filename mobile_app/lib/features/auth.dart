@@ -42,7 +42,17 @@ class _LoginState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(24), children: [
+        child: Column(children: [
+          Expanded(child: _form(context)),
+          // Pinned to the bottom like a footer; hidden while the keyboard is open so it never crowds the field.
+          if (MediaQuery.of(context).viewInsets.bottom == 0) const BrandFooter(),
+        ]),
+      ),
+    );
+  }
+
+  Widget _form(BuildContext context) {
+    return ListView(padding: const EdgeInsets.all(24), children: [
           const SizedBox(height: 40),
           const Icon(Icons.videocam, size: 56, color: Color(0xFF5BB4FF)),
           const SizedBox(height: 16),
@@ -62,11 +72,7 @@ class _LoginState extends ConsumerState<LoginScreen> {
           FilledButton(onPressed: _busy ? null : _send, child: _busy ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Send code')),
           const SizedBox(height: 18),
           const Text('By continuing you agree to the Terms and Privacy Policy.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF9FB2CC))),
-          const SizedBox(height: 24),
-          const BrandFooter(),
-        ]),
-      ),
-    );
+        ]);
   }
 }
 
