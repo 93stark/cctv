@@ -98,7 +98,7 @@ class AboutScreen extends StatelessWidget {
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(24), children: [
           const SizedBox(height: 16),
-          Center(child: Image.asset('assets/silicon_logo.png', width: 260, fit: BoxFit.contain, semanticLabel: 'Silicon Corporation')),
+          Center(child: Image.asset('assets/silicon_logo.png', width: 160, fit: BoxFit.contain, semanticLabel: 'Silicon Corporation')),
           const SizedBox(height: 28),
           const Text('Silicon Corporation', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),

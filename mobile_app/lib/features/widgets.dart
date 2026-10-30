@@ -55,7 +55,7 @@ Future<void> openSiliconSite(BuildContext context, [String url = siliconSite]) a
 
 /// "Developed with (red heart) by Silicon Corporation", optionally with the company logo above it.
 class BrandFooter extends StatelessWidget {
-  const BrandFooter({super.key, this.showLogo = true, this.logoWidth = 170});
+  const BrandFooter({super.key, this.showLogo = true, this.logoWidth = 100});
   final bool showLogo;
   final double logoWidth;
 
