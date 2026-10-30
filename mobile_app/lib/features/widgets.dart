@@ -45,38 +45,36 @@ void snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 }
 
-/// "Developed with love by Silicon Corporation" footer with a tappable website link.
+const siliconSite = 'https://www.siliconcorporation.in';
+const siliconAbout = 'https://www.siliconcorporation.in/about';
+
+Future<void> openSiliconSite(BuildContext context, [String url = siliconSite]) async {
+  final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  if (!ok && context.mounted) snack(context, 'Could not open the website.');
+}
+
+/// "Developed with (red heart) by Silicon Corporation", optionally with the company logo above it.
 class BrandFooter extends StatelessWidget {
-  const BrandFooter({super.key});
-  static const _site = 'https://siliconcorporation.in';
+  const BrandFooter({super.key, this.showLogo = true, this.logoWidth = 170});
+  final bool showLogo;
+  final double logoWidth;
 
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('Developed with ', style: TextStyle(color: muted, fontSize: 13)),
           const Icon(Icons.favorite, color: Color(0xFFE53935), size: 15),
-          Text(' by ', style: TextStyle(color: muted, fontSize: 13)),
-          const Text('Silicon Corporation', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          Text(' by', style: TextStyle(color: muted, fontSize: 13)),
         ]),
-        const SizedBox(height: 4),
-        InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: () async {
-            final ok = await launchUrl(Uri.parse(_site), mode: LaunchMode.externalApplication);
-            if (!ok && context.mounted) snack(context, 'Could not open the website.');
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Text.rich(TextSpan(style: TextStyle(color: muted, fontSize: 12.5), children: [
-              const TextSpan(text: 'Official website: '),
-              TextSpan(text: 'siliconcorporation.in', style: TextStyle(color: Theme.of(context).colorScheme.primary, decoration: TextDecoration.underline)),
-            ])),
-          ),
-        ),
+        if (showLogo) ...[
+          const SizedBox(height: 8),
+          Image.asset('assets/silicon_logo.png', width: logoWidth, fit: BoxFit.contain, semanticLabel: 'Silicon Corporation'),
+        ] else
+          const Padding(padding: EdgeInsets.only(top: 2), child: Text('Silicon Corporation', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
       ]),
     );
   }

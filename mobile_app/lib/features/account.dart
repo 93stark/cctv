@@ -29,6 +29,7 @@ class AccountTab extends ConsumerWidget {
       ListTile(leading: const Icon(Icons.notifications_none), title: const Text('Notifications'), onTap: () => context.push('/notifications')),
       if (phone != null) ListTile(leading: const Icon(Icons.call), title: Text('Call $phone'), onTap: () => openUrl(context, 'tel:$phone')),
       if (email != null) ListTile(leading: const Icon(Icons.email_outlined), title: Text(email), onTap: () => openUrl(context, 'mailto:$email')),
+      ListTile(leading: const Icon(Icons.info_outline), title: const Text('About us'), onTap: () => context.push('/about')),
       ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: const Text('Privacy policy'), onTap: () => context.push('/legal', extra: 'privacy')),
       ListTile(leading: const Icon(Icons.description_outlined), title: const Text('Terms and support policy'), onTap: () => context.push('/legal', extra: 'terms')),
       const Divider(),
@@ -57,7 +58,6 @@ class AccountTab extends ConsumerWidget {
           }
         },
       ),
-      const BrandFooter(),
     ]);
   }
 }
@@ -83,6 +83,39 @@ class LegalScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(title: const Text('About us')),
+      body: SafeArea(
+        child: ListView(padding: const EdgeInsets.all(24), children: [
+          const SizedBox(height: 16),
+          Center(child: Image.asset('assets/silicon_logo.png', width: 260, fit: BoxFit.contain, semanticLabel: 'Silicon Corporation')),
+          const SizedBox(height: 28),
+          const Text('Silicon Corporation', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('Technology End-Point', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: scheme.primary, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+          const SizedBox(height: 10),
+          Text('IT & IoT products and services', textAlign: TextAlign.center, style: TextStyle(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 32),
+          FilledButton.icon(
+            onPressed: () => openSiliconSite(context, siliconAbout),
+            icon: const Icon(Icons.language),
+            label: const Text('Official website'),
+          ),
+          const SizedBox(height: 10),
+          Center(child: Text('siliconcorporation.in', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13))),
+          const SizedBox(height: 40),
+          const BrandFooter(showLogo: false),
+        ]),
       ),
     );
   }

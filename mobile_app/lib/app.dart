@@ -49,6 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/checkout', builder: (_, s) => CheckoutScreen(plan: s.extra as Map<String, dynamic>)),
       GoRoute(path: '/membership', builder: (_, __) => const MembershipScreen()),
       GoRoute(path: '/history', builder: (_, __) => const HistoryScreen()),
+      GoRoute(path: '/about', builder: (_, __) => const AboutScreen()),
       GoRoute(path: '/legal', builder: (_, s) => LegalScreen(kind: s.extra as String)),
     ],
   );
