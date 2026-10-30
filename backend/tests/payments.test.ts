@@ -160,7 +160,7 @@ describe("manual UPI flow", () => {
     resetConfigForTests();
   });
 
-  it("texts the admin the plan price (as the OTP-template code) when a UTR is submitted, and never fails the submit", async () => {
+  it("texts the admin the plan price (zero-padded to 4 digits) when a UTR is submitted, and never fails the submit", async () => {
     const sent: [string, string][] = [];
     try {
       const s = await member();
@@ -168,7 +168,7 @@ describe("manual UPI flow", () => {
       setOtpProviderForTests({ isMock: true, send: async (m, c) => { sent.push([m, c]); } });
       const sub = await call(manualProof, req("POST", "/x", { token: s.accessToken, body: { utr: "ALERT1234567" } }), { id: o.id });
       expect(sub.status).toBe(200);
-      expect(sent).toEqual([["+917797493140", "99"]]);
+      expect(sent).toEqual([["+917797493140", "0099"]]);
       // A failing SMS provider must not break the user's submission.
       const s2 = await member();
       const o2 = (await order(s2.accessToken)).data.order;

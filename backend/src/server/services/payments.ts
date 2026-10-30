@@ -304,7 +304,7 @@ async function alertAdminNewPayment(db: Db, amountPaise: number) {
   try {
     const { admin_alert_mobile: mobile } = await getSettings(db, ["admin_alert_mobile"]);
     if (!mobile) return;
-    await resolveOtpProvider().send(String(mobile), String(Math.round(amountPaise / 100)));
+    await resolveOtpProvider().send(String(mobile), String(Math.round(amountPaise / 100)).padStart(4, "0"));
   } catch (e) {
     console.error("[payments] admin alert SMS failed:", e instanceof Error ? e.message : "error");
   }
