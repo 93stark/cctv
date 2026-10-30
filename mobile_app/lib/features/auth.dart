@@ -44,8 +44,8 @@ class _LoginState extends ConsumerState<LoginScreen> {
       body: SafeArea(
         child: Column(children: [
           Expanded(child: _form(context)),
-          // Pinned to the bottom like a footer; hidden while the keyboard is open so it never crowds the field.
-          if (MediaQuery.of(context).viewInsets.bottom == 0) const BrandFooter(),
+          // Pinned to the bottom like a footer. It rides just above the keyboard, so it is always visible.
+          const BrandFooter(padding: EdgeInsets.fromLTRB(0, 4, 0, 6)),
         ]),
       ),
     );

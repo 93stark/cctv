@@ -55,15 +55,16 @@ Future<void> openSiliconSite(BuildContext context, [String url = siliconSite]) a
 
 /// "Developed with (red heart) by Silicon Corporation", optionally with the company logo above it.
 class BrandFooter extends StatelessWidget {
-  const BrandFooter({super.key, this.showLogo = true, this.logoWidth = 100});
+  const BrandFooter({super.key, this.showLogo = true, this.logoWidth = 100, this.padding = const EdgeInsets.symmetric(vertical: 12)});
   final bool showLogo;
+  final EdgeInsets padding;
   final double logoWidth;
 
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: padding,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('Developed ', style: TextStyle(color: muted, fontSize: 13)),
