@@ -1,5 +1,7 @@
 import { and, count, desc, eq, inArray, lt } from "drizzle-orm";
 import type { Db } from "@/db";
+import { resolveOtpProvider } from "../otp/provider";
+import { getSettings } from "../settings";
 import {
   manualPaymentProofs,
   memberships,
@@ -290,7 +292,22 @@ export async function submitManualProof(db: Db, userId: string, orderId: string,
     }
     throw e;
   }
+  await alertAdminNewPayment(db, order.amountPaise);
   return { status: "awaiting_review" as const };
+}
+
+/**
+ * Tells the owner a UTR is waiting for approval. SMS templates are pre-approved OTP-only, so the "code" is the plan
+ * price in rupees (99 or 999): the owner sees which plan came in, then opens the admin panel. Best effort only.
+ */
+async function alertAdminNewPayment(db: Db, amountPaise: number) {
+  try {
+    const { admin_alert_mobile: mobile } = await getSettings(db, ["admin_alert_mobile"]);
+    if (!mobile) return;
+    await resolveOtpProvider().send(String(mobile), String(Math.round(amountPaise / 100)));
+  } catch (e) {
+    console.error("[payments] admin alert SMS failed:", e instanceof Error ? e.message : "error");
+  }
 }
 
 export async function approveManualProof(

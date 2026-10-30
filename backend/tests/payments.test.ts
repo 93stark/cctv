@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
+import { setOtpProviderForTests } from "@/server/otp/provider";
 import { adminLogin, adminReq, call, completeProfile, freshDb, loginUser, req, signedWebhook } from "./helpers";
 import { POST as createOrder } from "@/app/api/v1/payments/orders/route";
 import { GET as getMembership } from "@/app/api/v1/membership/route";
@@ -157,6 +158,25 @@ describe("manual UPI flow", () => {
   beforeEach(() => {
     process.env.PAYMENT_PROVIDER = "manual_upi";
     resetConfigForTests();
+  });
+
+  it("texts the admin the plan price (as the OTP-template code) when a UTR is submitted, and never fails the submit", async () => {
+    const sent: [string, string][] = [];
+    try {
+      const s = await member();
+      const o = (await order(s.accessToken)).data.order;
+      setOtpProviderForTests({ isMock: true, send: async (m, c) => { sent.push([m, c]); } });
+      const sub = await call(manualProof, req("POST", "/x", { token: s.accessToken, body: { utr: "ALERT1234567" } }), { id: o.id });
+      expect(sub.status).toBe(200);
+      expect(sent).toEqual([["+917797493140", "99"]]);
+      // A failing SMS provider must not break the user's submission.
+      const s2 = await member();
+      const o2 = (await order(s2.accessToken)).data.order;
+      setOtpProviderForTests({ isMock: true, send: async () => { throw new Error("sms down"); } });
+      expect((await call(manualProof, req("POST", "/x", { token: s2.accessToken, body: { utr: "ALERT7654321" } }), { id: o2.id })).status).toBe(200);
+    } finally {
+      setOtpProviderForTests(null);
+    }
   });
 
   it("needs admin approval with the exact amount; rejects reuse of a UTR", async () => {

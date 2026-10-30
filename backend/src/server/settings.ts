@@ -77,6 +77,7 @@ export const SETTING_DEFS = {
     label: "Terms and conditions",
   },
   /* Private settings: never in the public config. */
+  admin_alert_mobile: { schema: phone.nullable(), default: "+917797493140", public: false, label: "Admin alert SMS number (new payment)" },
   whatsapp_number: { schema: phone.nullable(), default: "+917797493140", public: false, label: "WhatsApp support number" },
   whatsapp_message_template: {
     schema: text(500).min(1),
