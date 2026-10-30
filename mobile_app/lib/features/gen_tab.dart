@@ -43,6 +43,39 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
   Map<String, dynamic>? _lastData;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _askName();
+    });
+  }
+
+  /// Asked once each time GEN is opened. Optional: Skip goes straight on.
+  Future<void> _askName() async {
+    final tmp = TextEditingController(text: _name.text);
+    final res = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Customer name'),
+        content: TextField(
+          controller: tmp,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+          decoration: const InputDecoration(hintText: 'Optional', prefixIcon: Icon(Icons.person_outline)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(''), child: const Text('Skip')),
+          FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(96, 44)), onPressed: () => Navigator.of(ctx).pop(tmp.text.trim()), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (mounted) setState(() => _name.text = res ?? '');
+  }
+
+  @override
   void dispose() {
     _burstC.dispose();
     _name.dispose();
@@ -284,7 +317,7 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
         _pkgId = pkg['id'] as String;
         final items = (pkg['items'] as List).cast<Map<String, dynamic>>();
         final scheme = Theme.of(context).colorScheme;
-        final cardW = (MediaQuery.of(context).size.width - 32 - 20) / 3;
+        final cardW = (MediaQuery.of(context).size.width - 32 - 24) / 4;
 
         return Column(
           children: [
@@ -314,18 +347,26 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-              child: TextField(
-                controller: _name,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(isDense: true, labelText: 'Customer name (optional)', prefixIcon: Icon(Icons.person_outline)),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Hold and drag an item into the basket, or just tap it.', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12.5)),
+                child: Row(children: [
+                  Expanded(child: Text('Hold and drag an item into the basket, or just tap it.', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12))),
+                  GestureDetector(
+                    onTap: _askName,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.person_outline, size: 16),
+                        const SizedBox(width: 3),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 90),
+                          child: Text(_name.text.isEmpty ? 'Add name' : _name.text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: scheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ]),
               ),
             ),
             Expanded(
@@ -337,8 +378,8 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
                   child: items.isEmpty
                       ? const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No items in this package yet.')))
                       : Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [for (final i in items) _itemCard(i, cardW, scheme)],
                         ),
                 ),
@@ -358,25 +399,25 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
     final label = variants.isEmpty ? 'Rs. ${money(minP)}' : 'from Rs. ${money(minP)}';
     Widget face({bool lifted = false}) => Container(
           width: w,
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: lifted ? scheme.primary : scheme.outlineVariant),
             boxShadow: lifted ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.5), blurRadius: 18)] : null,
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Stack(clipBehavior: Clip.none, children: [
-              _Thumb(url: item['imageUrl'] as String?, size: w - 16),
+              _Thumb(url: item['imageUrl'] as String?, size: w - 10),
               Positioned(
                 right: -2,
                 top: -2,
-                child: CircleAvatar(radius: 10, backgroundColor: scheme.primary, child: const Icon(Icons.add, size: 14, color: Colors.white)),
+                child: CircleAvatar(radius: 8, backgroundColor: scheme.primary, child: const Icon(Icons.add, size: 12, color: Colors.white)),
               ),
             ]),
-            const SizedBox(height: 6),
-            Text(item['name'] as String, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
-            Text(label, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11.5)),
+            const SizedBox(height: 4),
+            Text(item['name'] as String, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10.5, height: 1.15)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 9.5)),
           ]),
         );
 
@@ -394,7 +435,7 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
           dragAnchorStrategy: pointerDragAnchorStrategy,
           feedback: Transform.translate(
             offset: Offset(-w / 2, -w / 2),
-            child: Material(color: Colors.transparent, child: Transform.rotate(angle: -0.06, child: Transform.scale(scale: 1.08, child: face(lifted: true)))),
+            child: Material(color: Colors.transparent, child: Transform.rotate(angle: -0.06, child: Transform.scale(scale: 1.35, child: face(lifted: true)))),
           ),
           childWhenDragging: Opacity(opacity: 0.3, child: face()),
           child: GestureDetector(
