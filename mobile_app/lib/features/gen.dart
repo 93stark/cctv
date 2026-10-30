@@ -146,7 +146,8 @@ Future<File> writeQuotationPdf(Quotation q) async {
   return f.writeAsBytes(bytes, flush: true);
 }
 
-const _showOrder = false;
+// Build with --dart-define=SHOW_ORDER=true to bring the WhatsApp Order button back.
+final bool _showOrder = const bool.fromEnvironment('SHOW_ORDER');
 
 class QuotationPreviewScreen extends StatefulWidget {
   const QuotationPreviewScreen({super.key, required this.quotation, required this.orderWhatsapp});
