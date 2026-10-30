@@ -20,7 +20,14 @@ const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\
 export const profileInput = z.object({
   fullName: z.string().transform(clean).pipe(z.string().min(2, "Enter your full name").max(80)),
   location: z.string().transform(clean).pipe(z.string().min(3, "Enter your city").max(200)),
-  pinCode: z.string().trim().regex(/^[0-9]{4}$/, "PIN code must be 4 digits"),
+  // Optional. An empty value clears it; leaving the field out keeps what is saved.
+  email: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === "" ? null : v.toLowerCase()))
+    .pipe(z.string().email("Enter a valid email address").nullable().optional()),
   category: z.enum(CATEGORIES),
 });
 export type ProfileInput = z.infer<typeof profileInput>;

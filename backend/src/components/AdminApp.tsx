@@ -187,11 +187,11 @@ function Users({ can }: { can: (p: string) => boolean }) {
       {a.el}
       <div className="card scroll">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Mobile</th><th>Location</th><th>Category</th><th>Status</th><th>Joined</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Mobile</th><th>Location</th><th>Email</th><th>Category</th><th>Status</th><th>Joined</th><th /></tr></thead>
           <tbody>
             {data?.rows.map((u: Json) => (
               <tr key={u.id}>
-                <td>{u.fullName ?? "-"}</td><td>{u.mobile}</td><td>{u.location ?? "-"} {u.pinCode}</td><td>{u.category ?? "-"}</td>
+                <td>{u.fullName ?? "-"}</td><td>{u.mobile}</td><td>{u.location ?? "-"}</td><td>{u.email ?? "-"}</td><td>{u.category ?? "-"}</td>
                 <td><span className={`pill ${u.status}`}>{u.status}</span></td><td>{when(u.createdAt)}</td>
                 <td>
                   {can("users.manage") && u.status !== "deleted" && (

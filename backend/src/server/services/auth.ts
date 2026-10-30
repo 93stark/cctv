@@ -195,7 +195,7 @@ export async function userSummary(db: Db, userId: string) {
       ? {
           fullName: p[0].fullName,
           location: p[0].location,
-          pinCode: p[0].pinCode,
+          email: p[0].email,
           category: p[0].category,
           photoUrl: p[0].photoUrl,
         }

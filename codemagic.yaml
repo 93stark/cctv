@@ -7,7 +7,7 @@
 #  Optional (Play upload): GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (secure) in the cctv_play group.
 workflows:
   android-debug:
-    name: Android debug APK (every push)
+    name: Android APK - release, split per ABI (every push)
     working_directory: mobile_app
     max_build_duration: 30
     instance_type: mac_mini_m2
@@ -28,8 +28,11 @@ workflows:
         script: flutter analyze --no-fatal-infos
       - name: Unit tests
         script: flutter test
-      - name: Build debug APK
-        script: flutter build apk --debug --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
+      # Release mode is far smaller and faster than debug (debug APKs are ~170 MB). --split-per-abi makes one small APK
+      # per CPU type: install app-arm64-v8a-release.apk on almost every modern phone (armeabi-v7a for very old 32-bit ones).
+      # Signed with the debug key here, so it installs for testing; the Play Store build uses the real upload key (android-release).
+      - name: Build release APKs (split per ABI)
+        script: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
     artifacts:
       # Listed three ways because the base directory for patterns differs when working_directory is set.
       - $CM_BUILD_DIR/mobile_app/build/app/outputs/flutter-apk/*.apk

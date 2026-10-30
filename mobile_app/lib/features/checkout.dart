@@ -204,7 +204,7 @@ void _showInfo(BuildContext context) {
           'Limited Support (₹99): WhatsApp support for 1000 days from the date your payment is approved.\n\n'
           'Lifetime Support (₹999): WhatsApp support with no expiry date, for as long as this support service is offered by Silicon Corporation.\n\n'
           'Both are one-time payments. There is no subscription and no auto-renewal. Support covers questions about the book and CCTV learning; on-site visits and repairs are not included. Replies within 24 working hours (Mon to Sat, 10 AM to 6 PM).\n\n'
-          'Privacy: we store your name, mobile number, city, PIN code and category only to run your account and support. You can delete your account anytime from the Account screen.\n\n'
+          'Privacy: we store your name, mobile number, city, optional email and category only to run your account and support. You can delete your account anytime from the Account screen.\n\n'
           'Refunds: handled case by case by Silicon Corporation. Contact us on WhatsApp.',
         ),
       ),

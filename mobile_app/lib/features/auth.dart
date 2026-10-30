@@ -79,7 +79,7 @@ class _OtpState extends ConsumerState<OtpScreen> {
   final _code = TextEditingController();
   bool _busy = false;
   String? _error;
-  int _cooldown = 30;
+  int _cooldown = 60;
   Timer? _timer;
 
   @override
@@ -89,7 +89,7 @@ class _OtpState extends ConsumerState<OtpScreen> {
   }
 
   void _startTimer() {
-    _cooldown = 30;
+    _cooldown = 60;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;

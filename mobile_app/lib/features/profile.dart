@@ -23,7 +23,7 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _location;
-  late final TextEditingController _pin;
+  late final TextEditingController _email;
   String? _category;
   bool _busy = false;
 
@@ -33,7 +33,7 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
     final p = ref.read(authProvider).profile;
     _name = TextEditingController(text: p['fullName'] as String? ?? '');
     _location = TextEditingController(text: p['location'] as String? ?? '');
-    _pin = TextEditingController(text: p['pinCode'] as String? ?? '');
+    _email = TextEditingController(text: p['email'] as String? ?? '');
     _category = p['category'] as String?;
   }
 
@@ -44,11 +44,11 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
       await ref.read(authProvider.notifier).saveProfile({
         'fullName': _name.text.trim(),
         'location': _location.text.trim(),
-        'pinCode': _pin.text.trim(),
+        'email': _email.text.trim(),
         'category': _category,
       });
       if (!widget.setup && mounted) {
-        snack(context, 'Profile saved.');
+        snack(context, 'Profile updated.');
         context.pop();
       }
     } catch (e) {
@@ -94,7 +94,17 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 14),
             TextFormField(controller: _location, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'City'), validator: (v) => (v ?? '').trim().length < 3 ? 'Enter your city' : null),
             const SizedBox(height: 14),
-            TextFormField(controller: _pin, keyboardType: TextInputType.number, maxLength: 4, decoration: const InputDecoration(labelText: '4-digit PIN code', counterText: ''), validator: (v) => RegExp(r'^[0-9]{4}$').hasMatch((v ?? '').trim()) ? null : 'PIN code must be 4 digits'),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Email (optional)'),
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return null;
+                return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t) ? null : 'Enter a valid email address';
+              },
+            ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _category,
@@ -104,7 +114,7 @@ class _ProfileState extends ConsumerState<ProfileScreen> {
               validator: (v) => v == null ? 'Choose a category' : null,
             ),
             const SizedBox(height: 24),
-            FilledButton(onPressed: _busy ? null : _save, child: Text(widget.setup ? 'Continue' : 'Save')),
+            FilledButton(onPressed: _busy ? null : _save, child: Text(widget.setup ? 'Continue' : 'Update')),
           ]),
         ),
       ),

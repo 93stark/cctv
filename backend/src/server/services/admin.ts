@@ -60,7 +60,7 @@ export async function listUsers(db: Db, q: z.infer<typeof pageQuery>, opts: { al
   const base = db
     .select({
       id: users.id, mobile: users.mobileE164, status: users.status, createdAt: users.createdAt, lastLoginAt: users.lastLoginAt,
-      fullName: userProfiles.fullName, location: userProfiles.location, pinCode: userProfiles.pinCode, category: userProfiles.category,
+      fullName: userProfiles.fullName, location: userProfiles.location, email: userProfiles.email, category: userProfiles.category,
     })
     .from(users)
     .leftJoin(userProfiles, eq(userProfiles.userId, users.id))

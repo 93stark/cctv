@@ -55,11 +55,21 @@ describe("OTP auth", () => {
   it("validates profile and persists it", async () => {
     const s = await loginUser("+919000000004");
     const { PUT } = await import("@/app/api/v1/me/route");
-    const bad = await call(PUT, req("PUT", "/x", { token: s.accessToken, body: { fullName: "A", location: "x", pinCode: "12", category: "hacker" } }));
+    const bad = await call(PUT, req("PUT", "/x", { token: s.accessToken, body: { fullName: "A", location: "x", category: "hacker" } }));
     expect(bad.status).toBe(400);
-    expect((await completeProfile(s.accessToken)).status).toBe(200);
+    expect((await completeProfile(s.accessToken)).status).toBe(200); // no PIN, no email needed
     const got = await call(me, req("GET", "/x", { token: s.accessToken }));
-    expect(got.data.user.profile.pinCode).toBe("7231");
+    expect(got.data.user.profile.email).toBeNull();
+    expect(got.data.user.profile.pinCode).toBeUndefined();
+    const body = (email?: string) => ({ fullName: "Test User", location: "Purulia", category: "student", ...(email === undefined ? {} : { email }) });
+    expect((await call(PUT, req("PUT", "/x", { token: s.accessToken, body: body("not-an-email") }))).status).toBe(400);
+    expect((await call(PUT, req("PUT", "/x", { token: s.accessToken, body: body("Ali@Example.COM") }))).status).toBe(200);
+    expect((await call(me, req("GET", "/x", { token: s.accessToken }))).data.user.profile.email).toBe("ali@example.com");
+    // Leaving the field out keeps it; an empty value clears it.
+    await call(PUT, req("PUT", "/x", { token: s.accessToken, body: body() }));
+    expect((await call(me, req("GET", "/x", { token: s.accessToken }))).data.user.profile.email).toBe("ali@example.com");
+    await call(PUT, req("PUT", "/x", { token: s.accessToken, body: body("") }));
+    expect((await call(me, req("GET", "/x", { token: s.accessToken }))).data.user.profile.email).toBeNull();
   });
 
   it("rotates refresh tokens and revokes the family on reuse", async () => {

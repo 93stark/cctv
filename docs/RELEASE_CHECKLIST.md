@@ -8,7 +8,7 @@ Do not publish to production without the owner's explicit approval.
 - [ ] Real OTP provider working on a real phone. Payment path tested end to end with a real ₹99 payment and refund.
 - [ ] Support plan wording reviewed (what "Limited" and "Lifetime" mean, response time, refund policy) in Admin > Plans / Settings.
 - [ ] Privacy policy URL: `https://<backend>/privacy`. Terms: `https://<backend>/terms`. Account deletion URL/process documented in the listing (in-app: Account > Delete my account).
-- [ ] Data safety form: collected = name, phone number, approximate location text and PIN code, profile photo (optional), purchase history; encrypted in transit; users can request deletion; not sold; no ads.
+- [ ] Data safety form: collected = name, phone number, approximate location text (city), optional email, profile photo (optional), purchase history; encrypted in transit; users can request deletion; not sold; no ads.
 - [ ] Content rating questionnaire, target audience (18+ recommended because it involves payments), app category (Education).
 - [ ] Store listing: icon 512×512, feature graphic 1024×500, at least 2 phone screenshots, short and full description, contact email.
 - [ ] Pre-launch report from Play Console reviewed; crash-free internal test for a week.

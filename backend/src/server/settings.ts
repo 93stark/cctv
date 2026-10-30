@@ -65,7 +65,7 @@ export const SETTING_DEFS = {
   privacy_policy_text: {
     schema: text(30000),
     default:
-      "We collect your name, mobile number, location, PIN code and category to create your account and provide support. Payment records are kept as required by law. You can delete your account from the Profile screen. Contact the support email for any privacy request.",
+      "We collect your name, mobile number, city, optional email and category to create your account and provide support. Payment records are kept as required by law. You can delete your account from the Profile screen. Contact the support email for any privacy request.",
     public: true,
     label: "Privacy policy",
   },
