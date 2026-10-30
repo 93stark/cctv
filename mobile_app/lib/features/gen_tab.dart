@@ -8,8 +8,9 @@ import 'widgets.dart';
 
 /// One basket line. A line is one item + one chosen variant, so two monitor sizes are two lines.
 class CartLine {
-  CartLine({required this.key, required this.name, required this.variant, required this.unit, required this.unitPaise, required this.qty, this.imageUrl});
+  CartLine({required this.key, required this.pkg, required this.name, required this.variant, required this.unit, required this.unitPaise, required this.qty, this.imageUrl});
   final String key;
+  final String pkg;
   final String name;
   final String? variant;
   final String unit;
@@ -51,6 +52,13 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
   int get _count => _cart.values.fold(0, (t, l) => t + l.qty);
   int get _total => _cart.values.fold(0, (t, l) => t + l.qty * l.unitPaise);
 
+  String _currentPkgName() {
+    for (final p in ((_lastData?['items'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
+      if (p['id'] == _pkgId) return p['name'] as String;
+    }
+    return 'Custom';
+  }
+
   // ---- adding -------------------------------------------------------------
 
   void _addLine(Map<String, dynamic> item, Map<String, dynamic>? variant, int qty) {
@@ -64,6 +72,7 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
       } else {
         _cart[key] = CartLine(
           key: key,
+          pkg: _currentPkgName(),
           name: item['name'] as String,
           variant: variant?['label'] as String?,
           unit: (item['unit'] as String?) ?? 'pcs',
@@ -225,10 +234,10 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
     final lines = [for (final l in _cart.values) QuoteLine(l.title, l.unit, l.qty, l.unitPaise)];
     final now = DateTime.now();
     final company = ((data?['company'] as Map?)?['name'] as String?) ?? 'Silicon Corporation';
-    final pkgNames = {for (final p in ((data?['items'] as List?) ?? const []).cast<Map<String, dynamic>>()) p['id']: p['name']};
+    final pkgs = _cart.values.map((l) => l.pkg).toSet().toList();
     final q = Quotation(
       company: company,
-      packageName: pkgNames[_pkgId]?.toString() ?? 'Custom',
+      packageName: pkgs.length == 1 ? pkgs.first : 'Custom Quotation (${pkgs.join(', ')})',
       customer: _name.text.trim(),
       lines: lines,
       number: 'Q${_stamp(now)}',
