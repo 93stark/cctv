@@ -129,7 +129,7 @@ class _OtpState extends ConsumerState<OtpScreen> {
   void dispose() {
     _timer?.cancel();
     if (!kIsWeb && Platform.isAndroid) {
-      SmartAuth.instance.removeUserConsentApiListener().catchError((_) {});
+      SmartAuth.instance.removeUserConsentApiListener().then<void>((_) {}, onError: (_) {});
     }
     _code.dispose();
     super.dispose();
