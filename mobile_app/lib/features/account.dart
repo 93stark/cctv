@@ -37,7 +37,14 @@ class AccountTab extends ConsumerWidget {
         leading: const Icon(Icons.share_outlined),
         title: const Text('Refer'),
         subtitle: const Text('Share this app with friends'),
-        onTap: () => _referApp(context, cfg),
+        onTap: () async {
+          // Always use the latest admin-set link.
+          Map<String, dynamic> fresh = cfg;
+          try {
+            fresh = await ref.refresh(configProvider.future);
+          } catch (_) {}
+          if (context.mounted) await _referApp(context, fresh);
+        },
       ),
       ListTile(leading: const Icon(Icons.info_outline), title: const Text('About us'), onTap: () => context.push('/about')),
       ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: const Text('Privacy policy'), onTap: () => context.push('/legal', extra: 'privacy')),
@@ -139,7 +146,11 @@ Future<void> _referApp(BuildContext context, Map<String, dynamic> cfg) async {
   final name = (cfg['company_name'] as String?) ?? 'Silicon Corporation';
   try {
     if (link != null && link.isNotEmpty) {
-      await Share.share('CCTV Secret & Entrepreneurship app by $name.\nInstall it here: $link');
+      await Share.share(
+        'CCTV Secret & Entrepreneurship app by $name\n\nDownload & install:\n$link\n\n'
+        '(If asked, allow "Install from this source" to finish installing.)',
+        subject: 'CCTV Secret & Entrepreneurship app',
+      );
       return;
     }
     if (kIsWeb || !Platform.isAndroid) {
