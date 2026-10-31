@@ -36,6 +36,7 @@ export const SETTING_DEFS = {
     label: "Amazon book URL",
   },
   book_cover_url: { schema: httpsUrl.nullable(), default: null, public: true, label: "Book cover image URL" },
+  app_share_link: { schema: httpsUrl.nullable(), default: null, public: true, label: "Play Store / app share link (used by Refer)" },
   company_name: { schema: text(120).min(1), default: "Silicon Corporation", public: true, label: "Company name" },
   company_website: { schema: httpsUrl, default: "https://siliconcorporation.in", public: true, label: "Company website" },
   company_info: {

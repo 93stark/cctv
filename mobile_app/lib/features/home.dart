@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -32,7 +33,28 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [const HomeTab(), const LearnTab(), const SupportTab(), const GenTab(), const AccountTab()];
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (_i != 0) {
+          setState(() => _i = 0);
+          return;
+        }
+        final exit = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('Exit app?'),
+            content: const Text('Are you sure you want to exit?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Exit')),
+            ],
+          ),
+        );
+        if (exit == true) SystemNavigator.pop();
+      },
+      child: Scaffold(
       body: SafeArea(child: pages[_i]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _i,
@@ -45,7 +67,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
         ],
       ),
-    );
+    ));
   }
 }
 

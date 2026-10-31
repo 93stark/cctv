@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_auth/smart_auth.dart';
 import '../core/format.dart';
 import '../providers.dart';
 import 'widgets.dart';
@@ -94,6 +97,22 @@ class _OtpState extends ConsumerState<OtpScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    _listenSms();
+  }
+
+  /// Android SMS User Consent: the system asks once, then we auto-fill + verify.
+  Future<void> _listenSms() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final res = await SmartAuth.instance.getSmsWithUserConsentApi();
+      if (!mounted || !res.hasData) return;
+      final code = res.requireData.code;
+      if (code == null || code.isEmpty) return;
+      _code.text = code.length > 6 ? code.substring(0, 6) : code;
+      if (_code.text.length >= 4 && !_busy) _verify();
+    } catch (_) {
+      // Manual entry remains available.
+    }
   }
 
   void _startTimer() {
@@ -109,6 +128,9 @@ class _OtpState extends ConsumerState<OtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    if (!kIsWeb && Platform.isAndroid) {
+      SmartAuth.instance.removeUserConsentApiListener().catchError((_) {});
+    }
     _code.dispose();
     super.dispose();
   }
@@ -136,6 +158,7 @@ class _OtpState extends ConsumerState<OtpScreen> {
     try {
       await ref.read(authProvider.notifier).requestOtp(widget.mobile);
       _startTimer();
+      _listenSms();
       if (mounted) snack(context, 'A new code was sent.');
     } catch (e) {
       if (mounted) snack(context, e.toString());

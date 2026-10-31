@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers.dart';
 import 'home.dart';
 import 'widgets.dart';
@@ -29,6 +33,12 @@ class AccountTab extends ConsumerWidget {
       ListTile(leading: const Icon(Icons.notifications_none), title: const Text('Notifications'), onTap: () => context.push('/notifications')),
       if (phone != null) ListTile(leading: const Icon(Icons.call), title: Text('Call $phone'), onTap: () => openUrl(context, 'tel:$phone')),
       if (email != null) ListTile(leading: const Icon(Icons.email_outlined), title: Text(email), onTap: () => openUrl(context, 'mailto:$email')),
+      ListTile(
+        leading: const Icon(Icons.share_outlined),
+        title: const Text('Refer'),
+        subtitle: const Text('Share this app with friends'),
+        onTap: () => _referApp(context, cfg),
+      ),
       ListTile(leading: const Icon(Icons.info_outline), title: const Text('About us'), onTap: () => context.push('/about')),
       ListTile(leading: const Icon(Icons.privacy_tip_outlined), title: const Text('Privacy policy'), onTap: () => context.push('/legal', extra: 'privacy')),
       ListTile(leading: const Icon(Icons.description_outlined), title: const Text('Terms and support policy'), onTap: () => context.push('/legal', extra: 'terms')),
@@ -118,5 +128,46 @@ class AboutScreen extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+
+/// Shares the Play Store link when the admin has set one, otherwise the
+/// installed APK itself (Android).
+Future<void> _referApp(BuildContext context, Map<String, dynamic> cfg) async {
+  final link = (cfg['app_share_link'] as String?)?.trim();
+  final name = (cfg['company_name'] as String?) ?? 'Silicon Corporation';
+  try {
+    if (link != null && link.isNotEmpty) {
+      await Share.share('CCTV Secret & Entrepreneurship app by $name.\nInstall it here: $link');
+      return;
+    }
+    if (kIsWeb || !Platform.isAndroid) {
+      snack(context, 'Sharing is available on Android.');
+      return;
+    }
+    String? apk;
+    for (final line in await File('/proc/self/maps').readAsLines()) {
+      final i = line.indexOf('/');
+      if (i >= 0) {
+        final path = line.substring(i).trim();
+        if (path.endsWith('base.apk')) {
+          apk = path;
+          break;
+        }
+      }
+    }
+    if (apk == null) {
+      if (context.mounted) snack(context, 'Could not prepare the app file. Please try again.');
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    final out = await File(apk).copy('${dir.path}/CCTV-Secret.apk');
+    await Share.shareXFiles(
+      [XFile(out.path, mimeType: 'application/vnd.android.package-archive', name: 'CCTV-Secret.apk')],
+      text: 'CCTV Secret & Entrepreneurship app',
+    );
+  } catch (_) {
+    if (context.mounted) snack(context, 'Could not share right now.');
   }
 }
