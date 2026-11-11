@@ -1,5 +1,5 @@
-/** Icon + extra-item data for the GEN quotation catalog (icons live in /public/gen-icons). */
-export const ICON_BASE = (process.env.GEN_ICON_BASE_URL ?? "https://cctv-api-five.vercel.app").replace(/\/$/, "") + "/gen-icons/";
+/** Product pictures (original rendered artwork, no third-party copyright) + extra-item data for the GEN catalog (/public/gen-art). */
+export const ICON_BASE = (process.env.GEN_ICON_BASE_URL ?? "https://cctv-api-five.vercel.app").replace(/\/$/, "") + "/gen-art/";
 
 const RULES: [RegExp, string][] = [
   [/rj\s?-?45|lan connector/, "rj45"],
@@ -17,7 +17,8 @@ const RULES: [RegExp, string][] = [
   [/smps|power supply|adapter|adaptor/, "adapter"],
   [/hard disk|hdd|\bssd\b|storage/, "harddisk"],
   [/\bdvr\b|\bnvr\b|recorder/, "recorder"],
-  [/camera|dome|bullet|cctv/, "camera"],
+  [/dome/, "dome-camera"],
+  [/camera|bullet|cctv/, "bullet-camera"],
   [/keyboard/, "keyboard"],
   [/mouse/, "mouse"],
   [/monitor|screen|display|\blcd\b|\bled\b/, "monitor"],

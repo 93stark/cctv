@@ -243,6 +243,15 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
     await db.insert(appSettings).values({ key: "quotes_catalog_v4", valueJson: true }).onConflictDoNothing();
   }
 
+  // Catalog v5 (once): swap the first-generation flat icons for the product pictures. Admin uploads are left alone.
+  const v5Marker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_art_v5")).limit(1);
+  if (!v5Marker[0]) {
+    for (const it of await db.select().from(quoteItems)) {
+      if (!it.imageUrl || it.imageUrl.includes("/gen-icons/")) await db.update(quoteItems).set({ imageUrl: iconUrlFor(it.name) }).where(eq(quoteItems.id, it.id));
+    }
+    await db.insert(appSettings).values({ key: "quotes_art_v5", valueJson: true }).onConflictDoNothing();
+  }
+
   let adminCreated = false;
   const email = opts.adminEmail?.trim().toLowerCase();
   if (email && opts.adminPassword) {

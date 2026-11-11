@@ -338,6 +338,8 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
+                        avatar: Icon(_pkgIcon(p['name'] as String), size: 16),
+                        showCheckmark: false,
                         label: Text(p['name'] as String),
                         selected: p['id'] == _pkgId,
                         onSelected: (_) => setState(() => _pkgId = p['id'] as String),
@@ -807,4 +809,14 @@ class _PrintOverlayState extends State<_PrintOverlay> with SingleTickerProviderS
       ),
     );
   }
+}
+
+
+/// Small icon shown on each package tab (HD camera, IP camera, IT products, ...).
+IconData _pkgIcon(String name) {
+  final n = name.toLowerCase();
+  if (n.startsWith('hd')) return Icons.videocam;
+  if (n.startsWith('ip')) return Icons.router;
+  if (n.contains('it') || n.contains('desktop') || n.contains('computer')) return Icons.computer;
+  return Icons.inventory_2;
 }

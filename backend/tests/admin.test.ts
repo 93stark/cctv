@@ -220,7 +220,7 @@ describe("settings, content, plans, memberships (owner)", () => {
     expect(ip.items.find((i: any) => i.name === "RJ45 Connector")).toBeTruthy();
     const desk = d.items.find((p: any) => p.name === "Desktop");
     expect(desk.items.map((i: any) => i.name)).toContain("Router");
-    for (const p of [hd, ip, desk]) for (const i of p.items) expect(i.imageUrl).toMatch(/gen-icons\/.+\.png$/);
+    for (const p of [hd, ip, desk]) for (const i of p.items) expect(i.imageUrl).toMatch(/gen-art\/.+\.png$/);
     // admin-created variant: inactive ones stay hidden
     const itemId = mine.items[0].id;
     await call(contentPost, adminReq("POST", "/x", cookie, { itemId, label: "Big", unitPricePaise: 300000 }), { kind: "quote_variants" });

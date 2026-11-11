@@ -1,5 +1,6 @@
-# GEN item icons
+# GEN item pictures
 
-`backend/public/gen-icons/*.png` are rendered from Material Design Icons
-(`@mdi/svg`, Apache License 2.0, https://pictogrammers.com/library/mdi/)
-on a coloured rounded-square background. They are free for commercial use.
+`backend/public/gen-art/*.png` are original rendered product illustrations
+(generated from SVG artwork written for this project), so there is no
+third-party copyright. They are applied by `iconUrlFor()` in
+`backend/src/server/genCatalog.ts`; any picture uploaded by an admin is kept.
