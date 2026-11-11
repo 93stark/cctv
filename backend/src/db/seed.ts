@@ -252,6 +252,15 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
     await db.insert(appSettings).values({ key: "quotes_art_v5", valueJson: true }).onConflictDoNothing();
   }
 
+  // Catalog v6 (once): any item still without a picture (e.g. created by hand in the admin) gets one.
+  const v6Marker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_art_v6")).limit(1);
+  if (!v6Marker[0]) {
+    for (const it of await db.select().from(quoteItems)) {
+      if (!it.imageUrl || !it.imageUrl.trim()) await db.update(quoteItems).set({ imageUrl: iconUrlFor(it.name) }).where(eq(quoteItems.id, it.id));
+    }
+    await db.insert(appSettings).values({ key: "quotes_art_v6", valueJson: true }).onConflictDoNothing();
+  }
+
   let adminCreated = false;
   const email = opts.adminEmail?.trim().toLowerCase();
   if (email && opts.adminPassword) {

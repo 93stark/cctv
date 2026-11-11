@@ -5,6 +5,8 @@ const nextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   async headers() {
     return [
+      // Product pictures rarely change: let phones and the CDN keep them for a week (faster GEN on slow networks).
+      { source: "/gen-art/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
       {
         source: "/(.*)",
         headers: [
