@@ -191,7 +191,14 @@ describe("settings, content, plans, memberships (owner)", () => {
     const cam = ip.items.find((i: any) => i.name === "IP Camera");
     expect(cam.variants.map((v: any) => [v.label, v.unitPricePaise / 100])).toContainEqual(["Dome 2MP", 3400]);
     expect(ip.items.find((i: any) => i.name === "CAT6 Cable")).toMatchObject({ unit: "meter", defaultQty: 30 });
-    expect(d.items.map((p: any) => p.name)).toEqual(expect.arrayContaining(["HD Camera Package", "Common Items", "Desktop"]));
+    expect(d.items.map((p: any) => p.name)).toEqual(expect.arrayContaining(["HD Camera Package", "Desktop"]));
+    expect(d.items.map((p: any) => p.name)).not.toContain("Common Items"); // folded into Desktop (IT Products)
+    const hd = d.items.find((p: any) => p.name === "HD Camera Package");
+    expect(hd.items.find((i: any) => i.name === "BNC Connector")).toMatchObject({ unitPricePaise: 1500, defaultQty: 8 });
+    expect(ip.items.find((i: any) => i.name === "RJ45 Connector")).toBeTruthy();
+    const desk = d.items.find((p: any) => p.name === "Desktop");
+    expect(desk.items.map((i: any) => i.name)).toContain("Router");
+    for (const p of [hd, ip, desk]) for (const i of p.items) expect(i.imageUrl).toMatch(/gen-icons\/.+\.png$/);
     // admin-created variant: inactive ones stay hidden
     const itemId = mine.items[0].id;
     await call(contentPost, adminReq("POST", "/x", cookie, { itemId, label: "Big", unitPricePaise: 300000 }), { kind: "quote_variants" });

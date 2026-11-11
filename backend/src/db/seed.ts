@@ -4,6 +4,7 @@ import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItem
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
+import { HD_EXTRAS, IP_EXTRAS, iconUrlFor, type ExtraItem } from "@/server/genCatalog";
 
 /**
  * Idempotent seed. Safe to run on every deploy: it never overwrites plans or admins that already exist,
@@ -198,6 +199,48 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       order++;
     }
     await db.insert(appSettings).values({ key: "quotes_variants_v3", valueJson: true }).onConflictDoNothing();
+  }
+
+  // Catalog v4 (once): fold "Other" into "IT Products", add small accessories to the HD / IP packages
+  // at market rates, and give every item without a picture a free-licence icon.
+  const v4Marker = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "quotes_catalog_v4")).limit(1);
+  if (!v4Marker[0]) {
+    const pkgs = await db.select().from(quotePackages);
+    const norm = (v: string) => v.trim().toLowerCase();
+    const other = pkgs.find((p) => ["other", "others", "common items", "common"].includes(norm(p.name)));
+    const itPkg = pkgs.find((p) => ["it products", "it product", "it", "desktop"].includes(norm(p.name)));
+    if (other && itPkg && other.id !== itPkg.id) {
+      const have = new Set((await db.select().from(quoteItems).where(eq(quoteItems.packageId, itPkg.id))).map((i) => norm(i.name)));
+      let next = have.size;
+      for (const it of await db.select().from(quoteItems).where(eq(quoteItems.packageId, other.id))) {
+        if (have.has(norm(it.name))) continue;
+        await db.update(quoteItems).set({ packageId: itPkg.id, sortOrder: next++ }).where(eq(quoteItems.id, it.id));
+        have.add(norm(it.name));
+      }
+      await db.delete(quotePackages).where(eq(quotePackages.id, other.id));
+    }
+    const addExtras = async (pkgId: string, extras: ExtraItem[]) => {
+      const cur = await db.select().from(quoteItems).where(eq(quoteItems.packageId, pkgId));
+      const names = new Set(cur.map((i) => norm(i.name)));
+      let order = cur.reduce((m, i) => Math.max(m, i.sortOrder), -1) + 1;
+      for (const x of extras) {
+        if (names.has(norm(x.name))) continue;
+        const [row] = await db
+          .insert(quoteItems)
+          .values({ packageId: pkgId, name: x.name, unit: x.unit ?? "pcs", defaultQty: x.qty ?? 1, unitPricePaise: (x.price ?? 0) * 100, sortOrder: order++, imageUrl: iconUrlFor(x.name) })
+          .returning();
+        if (x.variants?.length) await db.insert(quoteVariants).values(x.variants.map(([label, rs], n) => ({ itemId: row.id, label, unitPricePaise: rs * 100, sortOrder: n })));
+      }
+    };
+    const rest = await db.select().from(quotePackages);
+    const hd = rest.find((p) => norm(p.name).startsWith("hd"));
+    const ip = rest.find((p) => norm(p.name).startsWith("ip"));
+    if (hd) await addExtras(hd.id, HD_EXTRAS);
+    if (ip) await addExtras(ip.id, IP_EXTRAS);
+    for (const it of await db.select().from(quoteItems)) {
+      if (!it.imageUrl) await db.update(quoteItems).set({ imageUrl: iconUrlFor(it.name) }).where(eq(quoteItems.id, it.id));
+    }
+    await db.insert(appSettings).values({ key: "quotes_catalog_v4", valueJson: true }).onConflictDoNothing();
   }
 
   let adminCreated = false;
