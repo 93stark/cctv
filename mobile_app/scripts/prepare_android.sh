@@ -48,6 +48,37 @@ for f in android/app/build.gradle android/app/build.gradle.kts; do
   sed -i.bak -E "s/(applicationId[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/; s/(namespace[[:space:]]*=?[[:space:]]*)\"[^\"]*\"/\1\"${APP_ID}\"/" "$f"
   rm -f "$f.bak"
 done
+# Razorpay needs a few R8/ProGuard keep rules in release builds.
+cat > android/app/proguard-rules.pro <<'PRO'
+-keepattributes *Annotation*
+-dontwarn com.razorpay.**
+-keep class com.razorpay.** {*;}
+-optimizations !method/inlining/
+-keepclasseswithmembers class * {
+  public void onPayment*(...);
+}
+-dontwarn proguard.annotation.Keep
+-dontwarn proguard.annotation.KeepClassMembers
+PRO
+python3 - <<'PY'
+import os, re
+for f, kts in (("android/app/build.gradle", False), ("android/app/build.gradle.kts", True)):
+    if not os.path.exists(f):
+        continue
+    s = open(f, encoding="utf-8").read()
+    if "proguard-rules.pro" in s:
+        continue
+    line = ('proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")' if kts
+            else "proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'")
+    m = re.search(r"release\s*\{", s)
+    if m:
+        s = s[: m.end()] + "\n            " + line + s[m.end():]
+        open(f, "w", encoding="utf-8").write(s)
+        print("proguard rules wired into", f)
+    else:
+        print("WARNING: could not find the release block in", f)
+PY
+
 # App launcher icon (from the project logo). Remove any template adaptive icon so ours is used.
 if [ -d assets/icon/android ]; then
   rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml

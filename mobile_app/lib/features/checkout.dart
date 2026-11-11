@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/format.dart';
 import '../providers.dart';
@@ -226,6 +227,9 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
   bool _busy = false;
   final _utr = TextEditingController();
   Timer? _poll;
+  Razorpay? _rzp;
+  bool _autoOpened = false;
+  bool _confirming = false;
 
   @override
   void initState() {
@@ -236,8 +240,77 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _rzp?.clear();
     _utr.dispose();
     super.dispose();
+  }
+
+  // ---- Razorpay -----------------------------------------------------------------
+  // The amount, order and key all come from our server. After Razorpay reports success the app only forwards the
+  // payment id + signature; the server checks the signature and activates the plan.
+
+  void _openRazorpay() {
+    final o = _order;
+    final c = o?['checkout'];
+    if (o == null || c is! Map || c['type'] != 'razorpay' || o['status'] != 'pending') return;
+    final auth = ref.read(authProvider);
+    final profile = auth.profile;
+    try {
+      _rzp?.clear();
+      final r = Razorpay();
+      _rzp = r;
+      r.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onRzpSuccess);
+      r.on(Razorpay.EVENT_PAYMENT_ERROR, _onRzpError);
+      r.on(Razorpay.EVENT_EXTERNAL_WALLET, (ExternalWalletResponse _) {});
+      final email = (profile['email'] as String?) ?? '';
+      r.open({
+        'key': c['keyId'],
+        'order_id': c['razorpayOrderId'],
+        'amount': c['amountPaise'],
+        'currency': c['currency'] ?? 'INR',
+        'name': c['merchantName'] ?? 'Silicon Corporation',
+        'description': c['description'] ?? 'Support plan',
+        'prefill': {
+          'contact': (auth.user?['mobile'] as String?) ?? '',
+          if (email.isNotEmpty) 'email': email,
+        },
+        'theme': {'color': '#1D8CF0'},
+        'retry': {'enabled': true, 'max_count': 3},
+      });
+    } catch (_) {
+      if (mounted) snack(context, 'Could not open the payment screen. Please try again.');
+    }
+  }
+
+  Future<void> _onRzpSuccess(PaymentSuccessResponse res) async {
+    if (!mounted) return;
+    setState(() => _confirming = true);
+    try {
+      final r = await ref.read(apiProvider).post('/payments/orders/${_order!['id']}/razorpay-verify', body: {
+        'razorpayPaymentId': res.paymentId,
+        'razorpayOrderId': res.orderId,
+        'razorpaySignature': res.signature,
+      });
+      if (!mounted) return;
+      setState(() => _order = Map<String, dynamic>.from(r['order'] as Map));
+      _poll?.cancel();
+      ref.invalidate(membershipProvider);
+    } catch (_) {
+      // Money may already be taken: the server also confirms through Razorpay's webhook, so keep checking.
+      if (mounted) {
+        snack(context, 'Payment received. Confirming with the server...');
+        _startPolling();
+        _refresh();
+      }
+    } finally {
+      if (mounted) setState(() => _confirming = false);
+    }
+  }
+
+  void _onRzpError(PaymentFailureResponse res) {
+    if (!mounted) return;
+    final cancelled = res.code == Razorpay.PAYMENT_CANCELLED;
+    snack(context, cancelled ? 'Payment cancelled. You can try again.' : (res.message?.isNotEmpty == true ? 'Payment failed: ${res.message}' : 'Payment failed. Please try again.'));
   }
 
   Future<void> _create() async {
@@ -249,6 +322,11 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
       final r = await ref.read(apiProvider).post('/payments/orders', body: {'planCode': widget.plan['code']});
       _order = Map<String, dynamic>.from(r['order'] as Map);
       _startPolling();
+      final c = _order!['checkout'];
+      if (!_autoOpened && c is Map && c['type'] == 'razorpay' && _order!['status'] == 'pending') {
+        _autoOpened = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _openRazorpay());
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -339,7 +417,30 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
     final widgets = <Widget>[
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [Expanded(child: Text(widget.plan['name'] as String, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))), Text(amount, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))]))),
     ];
-    if (c['type'] == 'manual_upi') {
+    if (c['type'] == 'razorpay') {
+      widgets.addAll([
+        const SizedBox(height: 10),
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(14),
+            child: Row(children: [
+              Icon(Icons.lock, color: Color(0xFF2FB26B)),
+              SizedBox(width: 12),
+              Expanded(child: Text('Secure payment by Razorpay. Pay with UPI, card, netbanking or wallet. Your plan activates automatically after payment.')),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (_confirming)
+          const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+        else
+          FilledButton.icon(
+            onPressed: _openRazorpay,
+            icon: const Icon(Icons.payments),
+            label: Text('Pay $amount', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ),
+      ]);
+    } else if (c['type'] == 'manual_upi') {
       final qr = c['qrImageUrl'] as String?;
       final upiLink = c['upiLink'] as String?;
       widgets.addAll([
