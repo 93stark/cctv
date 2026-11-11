@@ -13,9 +13,10 @@ import {
   userProfiles,
 } from "@/db/schema";
 import { audit, type AuditActor } from "../audit";
-import { randomCode } from "../crypto";
+import { hmacHex, randomCode, safeEqual } from "../crypto";
 import { ApiError } from "../http";
-import { getPaymentProvider, type NormalizedPaymentEvent } from "../payments/providers";
+import { getGatewayConfig } from "../payments/gatewayConfig";
+import { resolvePaymentProvider, type NormalizedPaymentEvent } from "../payments/providers";
 import { rateLimit } from "../rateLimit";
 import { getEffectiveMembership, membershipReference } from "./membership";
 import { notifyUser } from "./notifications";
@@ -66,8 +67,9 @@ export async function createOrder(db: Db, userId: string, planCode: string) {
   if (current && !plan.isLifetime) throw new ApiError(409, "already_member", "Your support plan is already active.");
 
   await expireStale(db, userId);
+  const provider = await resolvePaymentProvider(db);
 
-  // Reuse an open order for the same plan instead of creating duplicates.
+  // Reuse an open order for the same plan and gateway instead of creating duplicates.
   const open = await db
     .select()
     .from(paymentOrders)
@@ -75,6 +77,7 @@ export async function createOrder(db: Db, userId: string, planCode: string) {
       and(
         eq(paymentOrders.userId, userId),
         eq(paymentOrders.planId, plan.id),
+        eq(paymentOrders.provider, provider.name),
         inArray(paymentOrders.status, ["pending", "awaiting_review"]),
       ),
     )
@@ -82,7 +85,6 @@ export async function createOrder(db: Db, userId: string, planCode: string) {
     .limit(1);
   if (open[0]) return orderDto(db, open[0], plan);
 
-  const provider = getPaymentProvider();
   const orderRef = newOrderRef();
   const checkout = await provider.createCheckout(db, { orderRef, amountPaise: plan.pricePaise, currency: plan.currency });
   const created = await db
@@ -257,6 +259,43 @@ export async function settleProviderEvent(db: Db, providerName: string, ev: Norm
     await activateOrder(tx as unknown as Db, order, { provider: providerName, txnRef: ev.providerTxnRef, source: "webhook" });
     return finish("paid");
   });
+}
+
+/* -------------------------------------------------------------- Razorpay */
+
+/**
+ * The app calls this right after Razorpay's checkout succeeds. The signature proves the payment belongs to
+ * this exact Razorpay order (whose amount the server fixed), so the plan is activated immediately; the
+ * webhook arriving later finds the order already paid and does nothing.
+ */
+export async function verifyRazorpayPayment(
+  db: Db,
+  userId: string,
+  orderId: string,
+  input: { paymentId: string; razorpayOrderId: string; signature: string },
+) {
+  await rateLimit(db, `pay:verify:${userId}`, 20, 60 * 60);
+  const rows = await db.select().from(paymentOrders).where(and(eq(paymentOrders.id, orderId), eq(paymentOrders.userId, userId))).limit(1);
+  const order = rows[0];
+  if (!order) throw new ApiError(404, "not_found", "Order not found.");
+  if (order.provider !== "razorpay") throw new ApiError(409, "not_razorpay", "This order does not use online payment.");
+  const stored = (order.checkoutPayload as { razorpayOrderId?: string } | null)?.razorpayOrderId;
+  if (!stored || stored !== input.razorpayOrderId) throw new ApiError(400, "order_mismatch", "This payment does not belong to this order.");
+  const { keySecret } = await getGatewayConfig(db);
+  if (!keySecret) throw new ApiError(503, "payments_unavailable", "Online payment is not available right now.");
+  if (!safeEqual(input.signature, hmacHex(keySecret, `${input.razorpayOrderId}|${input.paymentId}`))) {
+    throw new ApiError(400, "invalid_signature", "Payment could not be verified.");
+  }
+  await settleProviderEvent(db, "razorpay", {
+    eventId: `verify:${input.paymentId}`,
+    orderRef: order.orderRef,
+    providerTxnRef: input.paymentId,
+    amountPaise: order.amountPaise,
+    currency: order.currency,
+    status: "success",
+    payloadHash: hmacHex("payload", `${input.razorpayOrderId}|${input.paymentId}`),
+  });
+  return getOrder(db, userId, orderId);
 }
 
 /* ------------------------------------------------------------ manual UPI */

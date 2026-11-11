@@ -4,6 +4,8 @@ import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItem
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
+import { config } from "@/server/config";
+import { getGatewayConfig, saveGatewayConfig } from "@/server/payments/gatewayConfig";
 import { HD_EXTRAS, IP_EXTRAS, iconUrlFor, type ExtraItem } from "@/server/genCatalog";
 
 /**
@@ -259,6 +261,15 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
       if (!it.imageUrl || !it.imageUrl.trim()) await db.update(quoteItems).set({ imageUrl: iconUrlFor(it.name) }).where(eq(quoteItems.id, it.id));
     }
     await db.insert(appSettings).values({ key: "quotes_art_v6", valueJson: true }).onConflictDoNothing();
+  }
+
+  // Online payment (Razorpay) becomes the default gateway on real servers; the admin can switch back in "Payments setup".
+  if (config().PAYMENT_PROVIDER !== "mock") {
+    const gm = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "gateway_default_v1")).limit(1);
+    if (!gm[0]) {
+      if (!(await getGatewayConfig(db)).gateway) await saveGatewayConfig(db, null, { gateway: "razorpay" });
+      await db.insert(appSettings).values({ key: "gateway_default_v1", valueJson: true }).onConflictDoNothing();
+    }
   }
 
   let adminCreated = false;

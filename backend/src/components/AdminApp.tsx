@@ -74,6 +74,7 @@ export default function AdminApp() {
     ["videos", "Videos", can("content.manage")],
     ["resources", "PDFs & pages", can("content.manage")],
     ["notifications", "Notifications", can("notifications.manage")],
+    ["razorpay", "Razorpay setup", can("payment_settings.manage")],
     ["settings", "Settings", can("settings.manage")],
     ["audit", "Audit log", can("audit.view")],
     ["password", "Change password", true],
@@ -110,6 +111,7 @@ export default function AdminApp() {
         {tab === "settings" && <Settings canPayment={can("payment_settings.manage")} />}
         {tab === "audit" && <Audit />}
         {tab === "password" && <ChangePassword />}
+        {tab === "razorpay" && <RazorpaySetup />}
       </main>
     </div>
   );
@@ -138,6 +140,72 @@ function Login({ onDone }: { onDone: (m: Me) => void }) {
       {a.el}
       <p><button disabled={a.busy}>Sign in</button></p>
     </form>
+  );
+}
+
+function RazorpaySetup() {
+  const { data, error, reload } = useLoad("/gateway");
+  const a = useAction();
+  const t = useAction();
+  const [keyId, setKeyId] = useState("");
+  const [keySecret, setKeySecret] = useState("");
+  const [webhook, setWebhook] = useState("");
+  const g = data?.gateway;
+  const hook = typeof window !== "undefined" ? `${window.location.origin}/api/v1/webhooks/payments/razorpay` : "";
+  const save = async (extra: Json = {}) => {
+    const body: Json = { ...extra };
+    if (keyId.trim()) body.keyId = keyId.trim();
+    if (keySecret.trim()) body.keySecret = keySecret.trim();
+    if (webhook.trim()) body.webhookSecret = webhook.trim();
+    if (!Object.keys(body).length) throw new Error("Nothing to save.");
+    await api("/gateway", "PUT", body);
+    setKeyId(""); setKeySecret(""); setWebhook("");
+    reload();
+  };
+  return (
+    <>
+      <h1>Razorpay setup</h1>
+      <p style={{ color: "var(--muted)" }}>Paste your Razorpay credentials here. They take effect immediately, no redeploy needed. The Key Secret is stored encrypted, is never shown again (only its last 4 characters) and never goes to the app.</p>
+      {error && <div className="msg err">{error}</div>}
+      {g && (
+        <div className="card" style={{ maxWidth: 560 }}>
+          <p>
+            <strong>Active payment method:</strong> {g.gateway === "razorpay" ? "Razorpay (online payment)" : "Manual UPI (QR + UTR)"}
+            {g.mode && <> &nbsp;·&nbsp; <strong>Mode:</strong> {g.mode === "live" ? "LIVE (real money)" : "TEST (no real money)"}</>}
+          </p>
+          <p style={{ color: "var(--muted)" }}>
+            Key ID: {g.keyId ?? "not saved"} · Key Secret: {g.hasKeySecret ? `saved (…${g.keySecretLast4})` : "not saved"} · Webhook secret: {g.hasWebhookSecret ? `saved (…${g.webhookSecretLast4})` : "not saved"}
+          </p>
+          <label htmlFor="rz1">Key ID {g.keyId ? "(enter only to change)" : ""}</label>
+          <input id="rz1" autoComplete="off" placeholder="rzp_test_xxxxxxxxxxxx or rzp_live_xxxxxxxxxxxx" value={keyId} onChange={(e) => setKeyId(e.target.value)} />
+          <label htmlFor="rz2">Key Secret {g.hasKeySecret ? "(enter only to change)" : ""}</label>
+          <input id="rz2" type="password" autoComplete="new-password" placeholder={g.hasKeySecret ? "••••••••••••" : "paste the Key Secret"} value={keySecret} onChange={(e) => setKeySecret(e.target.value)} />
+          <label htmlFor="rz3">Webhook secret {g.hasWebhookSecret ? "(enter only to change)" : ""}</label>
+          <input id="rz3" type="password" autoComplete="new-password" placeholder={g.hasWebhookSecret ? "••••••••••••" : "the secret you set for the webhook"} value={webhook} onChange={(e) => setWebhook(e.target.value)} />
+          {a.el}
+          <p>
+            <button disabled={a.busy} onClick={() => a.run(() => save(), "Saved.")}>Save credentials</button>{" "}
+            <button disabled={t.busy || !g.configured} onClick={() => t.run(async () => {
+              const r = await api("/gateway/test", "POST", {});
+              if (!r.ok) throw new Error(r.message);
+              return r;
+            }, "Razorpay accepted these credentials.")}>Test connection</button>
+          </p>
+          {t.el}
+          <hr />
+          <label>Payment method used by the app</label>
+          <p>
+            <button disabled={a.busy || g.gateway === "razorpay"} onClick={() => a.run(() => save({ gateway: "razorpay" }), "Razorpay is now the payment method.")}>Use Razorpay</button>{" "}
+            <button disabled={a.busy || g.gateway === "manual_upi"} onClick={() => a.run(() => save({ gateway: "manual_upi" }), "Manual UPI is now the payment method.")}>Use Manual UPI</button>
+          </p>
+          <hr />
+          <p><strong>Webhook (Razorpay Dashboard → Settings → Webhooks)</strong></p>
+          <p>URL: <code style={{ wordBreak: "break-all" }}>{hook}</code></p>
+          <p style={{ color: "var(--muted)" }}>Events to tick: <code>payment.captured</code> and <code>order.paid</code>. Use the same secret you saved above. Also keep auto-capture ON in the Razorpay dashboard so payments are not refunded automatically.</p>
+          <p style={{ color: "var(--muted)" }}>Plan prices (99 / 999) come from the Plans tab; the amount is always taken from there, never from the app.</p>
+        </div>
+      )}
+    </>
   );
 }
 

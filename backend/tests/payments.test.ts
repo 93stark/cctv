@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { createHmac } from "node:crypto";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { setOtpProviderForTests } from "@/server/otp/provider";
 import { adminLogin, adminReq, call, completeProfile, freshDb, loginUser, req, signedWebhook } from "./helpers";
@@ -220,5 +221,136 @@ describe("manual UPI flow", () => {
     const o = (await order(a.accessToken)).data.order;
     const r = await call(manualProof, req("POST", "/x", { token: b.accessToken, body: { utr: "111122223333" } }), { id: o.id });
     expect(r.status).toBe(404);
+  });
+});
+
+describe("Razorpay", () => {
+  const KEY_ID = "rzp_test_ABCDEF123456";
+  const KEY_SECRET = "s3cretKeyForTests99";
+  const WH_SECRET = "webhook-secret-1";
+  const realFetch = globalThis.fetch;
+  let created: any[] = [];
+
+  async function setup(gateway: "razorpay" | "manual_upi" = "razorpay") {
+    process.env.PAYMENT_PROVIDER = "manual_upi";
+    resetConfigForTests();
+    const { cookie } = await adminLogin();
+    const { PUT } = await import("@/app/api/admin/gateway/route");
+    const r = await call(PUT, adminReq("PUT", "/x", cookie, { gateway, keyId: KEY_ID, keySecret: KEY_SECRET, webhookSecret: WH_SECRET }));
+    expect(r.status).toBe(200);
+    return cookie;
+  }
+
+  beforeEach(() => {
+    created = [];
+    globalThis.fetch = (async (url: any, init: any) => {
+      if (String(url).endsWith("/v1/orders") && init?.method === "POST") {
+        const b = JSON.parse(init.body);
+        created.push({ ...b, auth: init.headers.authorization });
+        return new Response(JSON.stringify({ id: `order_${created.length}RZP`, amount: b.amount }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("stores secrets encrypted, never returns them, and the admin view only shows the last 4 characters", async () => {
+    const cookie = await setup();
+    const { GET } = await import("@/app/api/admin/gateway/route");
+    const view = (await call(GET, adminReq("GET", "/x", cookie))).data.gateway;
+    expect(view).toMatchObject({ gateway: "razorpay", keyId: KEY_ID, mode: "test", hasKeySecret: true, keySecretLast4: KEY_SECRET.slice(-4), configured: true });
+    expect(JSON.stringify(view)).not.toContain(KEY_SECRET);
+    const { appSettings } = await import("@/db/schema");
+    const row = (await db.select().from(appSettings).where(eq(appSettings.key, "gateway.config")))[0];
+    expect(JSON.stringify(row.valueJson)).not.toContain(KEY_SECRET);
+    expect(JSON.stringify(row.valueJson)).not.toContain(WH_SECRET);
+    const logs = await db.select().from(auditLogs).where(eq(auditLogs.action, "gateway.update"));
+    expect(JSON.stringify(logs)).not.toContain(KEY_SECRET);
+  });
+
+  it("rejects a malformed key id and a new key id without its secret", async () => {
+    const cookie = await setup();
+    const { PUT } = await import("@/app/api/admin/gateway/route");
+    expect((await call(PUT, adminReq("PUT", "/x", cookie, { keyId: "nonsense" }))).status).toBe(400);
+    expect((await call(PUT, adminReq("PUT", "/x", cookie, { keyId: "rzp_live_ZZZZZZ123456" }))).status).toBe(400);
+  });
+
+  it("creates the Razorpay order on the server with the plan price, and hands the app only the public key id", async () => {
+    await setup();
+    const s = await member();
+    const r = await call(createOrder, req("POST", "/x", { token: s.accessToken, body: { planCode: "limited", amountPaise: 1 } }));
+    expect(r.status).toBe(201);
+    const o = r.data.order;
+    expect(created[0]).toMatchObject({ amount: 9900, currency: "INR", receipt: o.orderRef });
+    expect(created[0].auth).toBe("Basic " + Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64"));
+    expect(o.provider).toBe("razorpay");
+    expect(o.checkout).toMatchObject({ type: "razorpay", keyId: KEY_ID, razorpayOrderId: "order_1RZP", amountPaise: 9900 });
+    expect(JSON.stringify(o)).not.toContain(KEY_SECRET);
+    // same plan again reuses the open order instead of creating another Razorpay order
+    const again = (await call(createOrder, req("POST", "/x", { token: s.accessToken, body: { planCode: "limited" } }))).data.order;
+    expect(again.id).toBe(o.id);
+    expect(created).toHaveLength(1);
+  });
+
+  it("activates the plan only with a valid signature for that order; the webhook afterwards is harmless", async () => {
+    await setup();
+    const s = await member();
+    const o = (await order(s.accessToken)).data.order;
+    const { POST: verify } = await import("@/app/api/v1/payments/orders/[id]/razorpay-verify/route");
+    const sig = (payId: string, rzpOrder = "order_1RZP") => createHmac("sha256", KEY_SECRET).update(`${rzpOrder}|${payId}`).digest("hex");
+    const body = (over: Record<string, string> = {}) => ({ razorpayPaymentId: "pay_ABC12345", razorpayOrderId: "order_1RZP", razorpaySignature: sig("pay_ABC12345"), ...over });
+    // forged / mismatched
+    expect((await call(verify, req("POST", "/x", { token: s.accessToken, body: body({ razorpaySignature: "f".repeat(64) }) }), { id: o.id })).status).toBe(400);
+    expect((await call(verify, req("POST", "/x", { token: s.accessToken, body: body({ razorpayOrderId: "order_OTHER" }) }), { id: o.id })).status).toBe(400);
+    expect((await call(getMembership, req("GET", "/x", { token: s.accessToken }))).data.membership).toBeNull();
+    // another user cannot settle this order
+    const other = await member();
+    expect((await call(verify, req("POST", "/x", { token: other.accessToken, body: body() }), { id: o.id })).status).toBe(404);
+    // genuine
+    const ok = await call(verify, req("POST", "/x", { token: s.accessToken, body: body() }), { id: o.id });
+    expect(ok.status).toBe(200);
+    expect(ok.data.order.status).toBe("paid");
+    expect((await call(getMembership, req("GET", "/x", { token: s.accessToken }))).data.membership).toBeTruthy();
+    // retry + webhook do not create a second membership
+    expect((await call(verify, req("POST", "/x", { token: s.accessToken, body: body() }), { id: o.id })).status).toBe(200);
+    const payload = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: "pay_ABC12345", order_id: "order_1RZP", amount: 9900, currency: "INR", status: "captured", notes: { orderRef: o.orderRef } } } } });
+    const wh = await call(webhook, new Request("http://localhost/x", { method: "POST", headers: { "x-razorpay-signature": createHmac("sha256", WH_SECRET).update(payload).digest("hex"), "x-razorpay-event-id": "evt_1" }, body: payload }), { provider: "razorpay" });
+    expect(wh.status).toBe(200);
+    expect(await db.select().from(memberships)).toHaveLength(1);
+  });
+
+  it("webhook alone also activates; wrong signature, wrong amount and failed events do nothing", async () => {
+    await setup();
+    const s = await member();
+    const o = (await order(s.accessToken)).data.order;
+    const send = (obj: unknown, secret = WH_SECRET, id = `evt_${Math.random()}`) => {
+      const payload = JSON.stringify(obj);
+      return call(webhook, new Request("http://localhost/x", { method: "POST", headers: { "x-razorpay-signature": createHmac("sha256", secret).update(payload).digest("hex"), "x-razorpay-event-id": id }, body: payload }), { provider: "razorpay" });
+    };
+    const ev = (over: Record<string, unknown> = {}, event = "payment.captured") => ({ event, payload: { payment: { entity: { id: "pay_W1", amount: 9900, currency: "INR", status: "captured", notes: { orderRef: o.orderRef }, ...over } } } });
+    expect((await send(ev(), "wrong-secret")).status).toBe(401);
+    expect((await send(ev({}, "payment.failed"), WH_SECRET)).data.result).toBe("ignored");
+    expect((await send(ev({ amount: 100 }))).data.result).toBe("amount_mismatch");
+    expect((await call(getMembership, req("GET", "/x", { token: s.accessToken }))).data.membership).toBeNull();
+    expect((await send(ev())).data.result).toBe("paid");
+    expect((await call(getMembership, req("GET", "/x", { token: s.accessToken }))).data.membership).toBeTruthy();
+  });
+
+  it("is unavailable (503) until credentials are saved, and switching to manual UPI works again", async () => {
+    process.env.PAYMENT_PROVIDER = "manual_upi";
+    resetConfigForTests();
+    const { cookie } = await adminLogin();
+    const { PUT } = await import("@/app/api/admin/gateway/route");
+    expect((await call(PUT, adminReq("PUT", "/x", cookie, { gateway: "razorpay" }))).status).toBe(400);
+    const { saveGatewayConfig } = await import("@/server/payments/gatewayConfig");
+    await saveGatewayConfig(db, null, { gateway: "razorpay" });
+    const s = await member();
+    const r = await order(s.accessToken);
+    expect(r.status).toBe(503);
+    expect(r.data.error.code).toBe("payments_unavailable");
+    await saveGatewayConfig(db, null, { gateway: "manual_upi" });
+    expect((await order(s.accessToken)).data.order.provider).toBe("manual_upi");
   });
 });

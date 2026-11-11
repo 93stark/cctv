@@ -15,6 +15,8 @@ const envSchema = z.object({
   ALLOW_DEMO_OTP: z.enum(["true", "false"]).default("false"),
   PAYMENT_PROVIDER: z.enum(["mock", "manual_upi"]).default("mock"),
   MOCK_WEBHOOK_SECRET: z.string().optional().default(""),
+  /** Optional: key used to encrypt gateway secrets stored in the database. Falls back to JWT_SECRET. */
+  SETTINGS_ENCRYPTION_KEY: z.string().optional().default(""),
   ADMIN_BOOTSTRAP_EMAIL: z.string().optional().default(""),
   ADMIN_BOOTSTRAP_PASSWORD: z.string().optional().default(""),
   BLOB_READ_WRITE_TOKEN: z.string().optional().default(""),

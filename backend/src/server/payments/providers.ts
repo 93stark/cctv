@@ -3,9 +3,23 @@ import { config } from "../config";
 import { hmacHex, safeEqual } from "../crypto";
 import { ApiError } from "../http";
 import { getSettings } from "../settings";
+import { getGatewayConfig, type GatewayConfig } from "./gatewayConfig";
 
 export type CheckoutPayload =
   | { type: "mock"; message: string }
+  | {
+      type: "razorpay";
+      /** Public key id (safe for the app). The key secret never leaves the server. */
+      keyId: string;
+      razorpayOrderId: string;
+      orderRef: string;
+      amountPaise: number;
+      currency: string;
+      mode: "test" | "live";
+      /** Shown on the Razorpay checkout sheet. */
+      merchantName: string;
+      description: string;
+    }
   | {
       type: "manual_upi";
       qrImageUrl: string | null;
@@ -32,13 +46,14 @@ export type NormalizedPaymentEvent = {
 };
 
 export interface PaymentProvider {
-  readonly name: "mock" | "manual_upi";
+  readonly name: "mock" | "manual_upi" | "razorpay";
   readonly orderTtlMinutes: number;
   /** Whether verified server-to-server callbacks are available for this provider. */
   readonly supportsWebhooks: boolean;
   createCheckout(db: Db, order: { orderRef: string; amountPaise: number; currency: string }): Promise<CheckoutPayload>;
   /** Verify the callback signature and return a normalised event. Throws ApiError(401) if invalid. */
-  verifyWebhook?(rawBody: string, headers: Headers): NormalizedPaymentEvent;
+  /** Returns null for events that need no action (for example a failed attempt the user can retry). */
+  verifyWebhook?(rawBody: string, headers: Headers): NormalizedPaymentEvent | null;
 }
 
 class MockProvider implements PaymentProvider {
@@ -116,11 +131,97 @@ class ManualUpiProvider implements PaymentProvider {
   }
 }
 
-export function getPaymentProvider(): PaymentProvider {
+const RZP_API = "https://api.razorpay.com/v1";
+
+export function rzpAuthHeader(keyId: string, keySecret: string) {
+  return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
+}
+
+/** Razorpay Standard Checkout: the server creates the order, the app opens the checkout, the server confirms by signature and webhook. */
+export class RazorpayProvider implements PaymentProvider {
+  readonly name = "razorpay" as const;
+  readonly orderTtlMinutes = 24 * 60;
+  readonly supportsWebhooks = true;
+  constructor(private readonly creds: GatewayConfig) {}
+
+  async createCheckout(db: Db, order: { orderRef: string; amountPaise: number; currency: string }): Promise<CheckoutPayload> {
+    const { keyId, keySecret } = this.creds;
+    if (!keyId || !keySecret) {
+      throw new ApiError(503, "payments_unavailable", "Online payment is being set up. Please try again in a little while.");
+    }
+    let res: Response;
+    try {
+      res = await fetch(`${RZP_API}/orders`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: rzpAuthHeader(keyId, keySecret) },
+        body: JSON.stringify({ amount: order.amountPaise, currency: order.currency, receipt: order.orderRef, notes: { orderRef: order.orderRef } }),
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch {
+      throw new ApiError(502, "gateway_unreachable", "Could not reach the payment gateway. Please try again.");
+    }
+    const body = (await res.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
+    if (!res.ok || !body.id) {
+      console.error("[razorpay] order create failed", res.status, body.error?.description ?? "");
+      throw new ApiError(502, "gateway_error", "The payment gateway could not start this payment. Please try again later.");
+    }
+    const s = await getSettings(db, ["company_name"]);
+    return {
+      type: "razorpay",
+      keyId,
+      razorpayOrderId: body.id,
+      orderRef: order.orderRef,
+      amountPaise: order.amountPaise,
+      currency: order.currency,
+      mode: keyId.startsWith("rzp_live_") ? "live" : "test",
+      merchantName: String(s.company_name ?? "Silicon Corporation"),
+      description: "CCTV Secret & Entrepreneurship - Support plan",
+    };
+  }
+
+  verifyWebhook(rawBody: string, headers: Headers): NormalizedPaymentEvent | null {
+    const secret = this.creds.webhookSecret;
+    if (!secret) throw new ApiError(503, "webhook_not_configured", "Webhook secret is not configured.");
+    if (!safeEqual(headers.get("x-razorpay-signature") ?? "", hmacHex(secret, rawBody))) {
+      throw new ApiError(401, "invalid_signature", "Invalid signature.");
+    }
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      throw new ApiError(400, "invalid_json", "Invalid payload.");
+    }
+    const event = String(body?.event ?? "");
+    if (event !== "payment.captured" && event !== "order.paid") return null; // failed attempts can be retried by the user
+    const pay = body?.payload?.payment?.entity;
+    const orderRef = pay?.notes?.orderRef ?? body?.payload?.order?.entity?.notes?.orderRef;
+    if (!pay || typeof pay.id !== "string" || !Number.isInteger(pay.amount) || typeof orderRef !== "string") return null;
+    if (event === "payment.captured" && pay.status !== "captured") return null;
+    return {
+      eventId: headers.get("x-razorpay-event-id") ?? `${event}:${pay.id}`,
+      orderRef,
+      providerTxnRef: pay.id,
+      amountPaise: pay.amount,
+      currency: String(pay.currency ?? "INR"),
+      status: "success",
+      payloadHash: hmacHex("payload", rawBody),
+    };
+  }
+}
+
+/** Which gateway new payments use: development mock, or whatever the admin chose in "Payments setup". */
+export async function resolvePaymentProvider(db: Db): Promise<PaymentProvider> {
   const cfg = config();
   if (cfg.PAYMENT_PROVIDER === "mock") {
     if (cfg.isLive) throw new Error("Mock payment provider is not allowed outside development");
     return new MockProvider();
   }
+  const g = await getGatewayConfig(db);
+  if (g.gateway === "razorpay") return new RazorpayProvider(g);
   return new ManualUpiProvider();
+}
+
+/** Razorpay callbacks are always accepted (even if the admin switched gateway later) so no paid order is lost. */
+export async function razorpayProviderFromDb(db: Db): Promise<RazorpayProvider> {
+  return new RazorpayProvider(await getGatewayConfig(db));
 }
