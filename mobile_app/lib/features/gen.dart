@@ -21,8 +21,13 @@ class QuoteLine {
 }
 
 class Quotation {
-  Quotation({required this.company, required this.packageName, required this.customer, required this.lines, required this.number, required this.date});
+  Quotation({required this.company, this.issuerName = '', this.issuerMobile = '', this.issuerCity = '', required this.packageName, required this.customer, required this.lines, required this.number, required this.date});
   final String company;
+  /// The registered app user who is making the quotation (shown in the PDF header).
+  final String issuerName;
+  final String issuerMobile;
+  final String issuerCity;
+  String get fromName => issuerName.trim().isNotEmpty ? issuerName.trim() : company;
   final String packageName;
   final String customer;
   final List<QuoteLine> lines;
@@ -78,8 +83,9 @@ Future<Uint8List> buildQuotationPdf(Quotation q) async {
       build: (_) => [
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text(_latin(q.company), style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: blue)),
-            pw.Text('CCTV Secret & Entrepreneurship', style: const pw.TextStyle(fontSize: 10, color: grey)),
+            pw.Text(_latin(q.fromName), style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: blue)),
+            if (q.issuerMobile.trim().isNotEmpty) pw.Text('Mobile: ${_latin(q.issuerMobile)}', style: const pw.TextStyle(fontSize: 10, color: grey)),
+            if (q.issuerCity.trim().isNotEmpty) pw.Text(_latin(q.issuerCity), style: const pw.TextStyle(fontSize: 10, color: grey)),
           ]),
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
             pw.Text('QUOTATION', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
@@ -132,6 +138,8 @@ Future<Uint8List> buildQuotationPdf(Quotation q) async {
           ),
         ),
         pw.SizedBox(height: 24),
+        pw.Text('CCTV Secret & Entrepreneurship', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: blue)),
+        pw.SizedBox(height: 2),
         pw.Text('This is a system generated quotation. Prices are indicative and subject to confirmation.', style: const pw.TextStyle(fontSize: 9, color: grey)),
       ],
     ),
@@ -164,7 +172,7 @@ class _QuotationPreviewScreenState extends State<QuotationPreviewScreen> {
     setState(() => _busy = true);
     try {
       final f = await writeQuotationPdf(widget.quotation);
-      await Share.shareXFiles([XFile(f.path, mimeType: 'application/pdf')], subject: 'Quotation ${widget.quotation.number}', text: 'Quotation from ${widget.quotation.company}');
+      await Share.shareXFiles([XFile(f.path, mimeType: 'application/pdf')], subject: 'Quotation ${widget.quotation.number}', text: 'Quotation from ${widget.quotation.fromName}');
     } catch (_) {
       if (mounted) snack(context, 'Could not create the PDF. Please try again.');
     } finally {

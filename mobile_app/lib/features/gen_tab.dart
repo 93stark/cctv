@@ -268,8 +268,12 @@ class _GenTabState extends ConsumerState<GenTab> with TickerProviderStateMixin {
     final now = DateTime.now();
     final company = ((data?['company'] as Map?)?['name'] as String?) ?? 'Silicon Corporation';
     final pkgs = _cart.values.map((l) => l.pkg).toSet().toList();
+    final auth = ref.read(authProvider);
     final q = Quotation(
       company: company,
+      issuerName: (auth.profile['fullName'] as String?) ?? '',
+      issuerMobile: (auth.user?['mobile'] as String?) ?? '',
+      issuerCity: (auth.profile['location'] as String?) ?? '',
       packageName: pkgs.length == 1 ? pkgs.first : 'Custom Quotation (${pkgs.join(', ')})',
       customer: _name.text.trim(),
       lines: lines,
