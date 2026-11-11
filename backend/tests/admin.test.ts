@@ -171,6 +171,28 @@ describe("settings, content, plans, memberships (owner)", () => {
     expect(f.book.amazonUrl).toContain("amazon.in");
   });
 
+  it("admin can change their own password: wrong current is rejected, weak is rejected, old password stops working", async () => {
+    const { cookie } = await adminLogin();
+    const PW = "correct-horse-battery-1";
+    const { POST } = await import("@/app/api/admin/auth/password/route");
+    const bad = await call(POST, adminReq("POST", "/x", cookie, { currentPassword: "wrong-password-123", newPassword: "A-brand-new-pass-42" }));
+    expect(bad.status).toBe(400);
+    const weak = await call(POST, adminReq("POST", "/x", cookie, { currentPassword: PW, newPassword: "short" }));
+    expect(weak.status).toBe(400);
+    const ok = await call(POST, adminReq("POST", "/x", cookie, { currentPassword: PW, newPassword: "A-brand-new-pass-42" }));
+    expect(ok.status).toBe(200);
+    // old session is signed out, old password no longer works, the new one does
+    const me = await import("@/app/api/admin/auth/me/route");
+    expect((await call(me.GET, adminReq("GET", "/x", cookie))).status).toBe(401);
+    const login = await import("@/app/api/admin/auth/login/route");
+    expect((await call(login.POST, req("POST", "/x", { body: { email: ADMIN_EMAIL, password: PW } }))).status).toBe(401);
+    expect((await call(login.POST, req("POST", "/x", { body: { email: ADMIN_EMAIL, password: "A-brand-new-pass-42" } }))).status).toBe(200);
+    // restore for the other tests
+    const l2 = await call(login.POST, req("POST", "/x", { body: { email: ADMIN_EMAIL, password: "A-brand-new-pass-42" } }));
+    const c2 = (l2.headers.get("set-cookie") ?? "").split(";")[0];
+    expect((await call(POST, adminReq("POST", "/x", c2, { currentPassword: "A-brand-new-pass-42", newPassword: PW }))).status).toBe(200);
+  });
+
   it("quotes: admin builds a package with priced items; only published packages and active items reach the app", async () => {
     const { cookie } = await adminLogin();
     const viewer = await loginUser("+917999900012");

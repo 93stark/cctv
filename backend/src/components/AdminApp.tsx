@@ -76,6 +76,7 @@ export default function AdminApp() {
     ["notifications", "Notifications", can("notifications.manage")],
     ["settings", "Settings", can("settings.manage")],
     ["audit", "Audit log", can("audit.view")],
+    ["password", "Change password", true],
   ];
 
   return (
@@ -108,6 +109,7 @@ export default function AdminApp() {
         {tab === "notifications" && <Content kind="notifications" />}
         {tab === "settings" && <Settings canPayment={can("payment_settings.manage")} />}
         {tab === "audit" && <Audit />}
+        {tab === "password" && <ChangePassword />}
       </main>
     </div>
   );
@@ -135,6 +137,41 @@ function Login({ onDone }: { onDone: (m: Me) => void }) {
       <input id="pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {a.el}
       <p><button disabled={a.busy}>Sign in</button></p>
+    </form>
+  );
+}
+
+function ChangePassword() {
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const a = useAction();
+  return (
+    <form
+      className="card"
+      style={{ maxWidth: 420 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (next !== again) {
+          await a.run(async () => { throw new Error("New passwords do not match."); }, "");
+          return;
+        }
+        await a.run(async () => {
+          await api("/auth/password", "POST", { currentPassword: cur, newPassword: next });
+          setCur(""); setNext(""); setAgain("");
+        }, "Password changed. Other devices were signed out.");
+      }}
+    >
+      <h2>Change password</h2>
+      <p>Use at least 12 characters. Do not share your password in chats.</p>
+      <label htmlFor="cp0">Current password</label>
+      <input id="cp0" type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} required />
+      <label htmlFor="cp1">New password</label>
+      <input id="cp1" type="password" autoComplete="new-password" minLength={12} value={next} onChange={(e) => setNext(e.target.value)} required />
+      <label htmlFor="cp2">Repeat new password</label>
+      <input id="cp2" type="password" autoComplete="new-password" minLength={12} value={again} onChange={(e) => setAgain(e.target.value)} required />
+      {a.el}
+      <p><button disabled={a.busy}>Change password</button></p>
     </form>
   );
 }

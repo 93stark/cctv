@@ -69,6 +69,24 @@ export async function logoutAdmin(db: Db, adminId: string) {
   if (rows[0]) await db.update(adminUsers).set({ tokenVersion: rows[0].tv + 1 }).where(eq(adminUsers.id, adminId));
 }
 
+/** Changes the signed-in admin's password; every other session is signed out, and a fresh token is returned for this one. */
+export async function changeAdminPassword(db: Db, adminId: string, current: string, next: string, ip: string) {
+  const key = `admin:pwchange:${adminId}`;
+  await rateLimitPeek(db, key, 5, 15 * 60);
+  const rows = await db.select().from(adminUsers).where(eq(adminUsers.id, adminId)).limit(1);
+  const admin = rows[0];
+  if (!admin || !(await verifyPassword(current, admin.passwordHash))) {
+    await rateLimit(db, key, 5, 15 * 60).catch(() => {});
+    throw new ApiError(400, "invalid_credentials", "Current password is incorrect.");
+  }
+  if (current === next) throw new ApiError(400, "weak_password", "New password must be different from the current one.");
+  validateNewPassword(next);
+  const tokenVersion = admin.tokenVersion + 1;
+  await db.update(adminUsers).set({ passwordHash: await hashPassword(next), tokenVersion }).where(eq(adminUsers.id, adminId));
+  await audit(db, { id: admin.id, email: admin.email }, "admin.password_change", "admin_user", admin.id, null, null, ip);
+  return signAdminToken(admin.id, tokenVersion);
+}
+
 function checkCsrf(req: Request) {
   if (req.method === "GET" || req.method === "HEAD") return;
   if (req.headers.get("x-admin-csrf") !== "1") throw new ApiError(403, "csrf", "Missing CSRF header.");
