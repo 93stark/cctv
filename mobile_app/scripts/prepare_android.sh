@@ -79,6 +79,23 @@ for f, kts in (("android/app/build.gradle", False), ("android/app/build.gradle.k
         print("WARNING: could not find the release block in", f)
 PY
 
+# Plugin lint (lintVitalAnalyzeRelease) crashes on some libraries (lint bug); lint is not needed for our APK.
+python3 - <<'PY'
+import os
+for f, kts in (("android/build.gradle", False), ("android/build.gradle.kts", True)):
+    if not os.path.exists(f):
+        continue
+    s = open(f, encoding="utf-8").read()
+    if "lintVital" in s:
+        continue
+    if kts:
+        s += '\nallprojects {\n    tasks.configureEach {\n        if (name.startsWith("lintVital") || name.startsWith("lintAnalyze") || name == "lintReport") { enabled = false }\n    }\n}\n'
+    else:
+        s += '\nallprojects {\n    tasks.configureEach { t ->\n        if (t.name.startsWith("lintVital") || t.name.startsWith("lintAnalyze") || t.name == "lintReport") { t.enabled = false }\n    }\n}\n'
+    open(f, "w", encoding="utf-8").write(s)
+    print("lint tasks disabled in", f)
+PY
+
 # App launcher icon (from the project logo). Remove any template adaptive icon so ours is used.
 if [ -d assets/icon/android ]; then
   rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml
