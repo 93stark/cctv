@@ -83,7 +83,14 @@ export async function createOrder(db: Db, userId: string, planCode: string) {
     )
     .orderBy(desc(paymentOrders.createdAt))
     .limit(1);
-  if (open[0]) return orderDto(db, open[0], plan);
+  if (open[0] && open[0].amountPaise === plan.pricePaise && open[0].currency === plan.currency) {
+    return orderDto(db, open[0], plan);
+  }
+  // The admin changed the plan price after that order was opened: close the stale unpaid order so the new
+  // checkout uses the current price (orders already awaiting manual review are left alone).
+  if (open[0] && open[0].status === "pending") {
+    await db.update(paymentOrders).set({ status: "expired", updatedAt: new Date() }).where(eq(paymentOrders.id, open[0].id));
+  }
 
   const orderRef = newOrderRef();
   const checkout = await provider.createCheckout(db, { orderRef, amountPaise: plan.pricePaise, currency: plan.currency });

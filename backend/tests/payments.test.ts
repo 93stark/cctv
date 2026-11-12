@@ -145,13 +145,15 @@ describe("payments (mock provider)", () => {
     expect((await order(s.accessToken)).status).toBe(201);
   });
 
-  it("plan price changes affect only new orders", async () => {
+  it("a plan price change replaces the stale open order with one at the new price", async () => {
     const s = await member();
     const o = (await order(s.accessToken)).data.order;
     await db.update(supportPlans).set({ pricePaise: 12900 }).where(eq(supportPlans.code, "limited"));
     const again = (await order(s.accessToken)).data.order;
-    expect(again.id).toBe(o.id);
-    expect(again.amountPaise).toBe(9900);
+    expect(again.id).not.toBe(o.id);
+    expect(again.amountPaise).toBe(12900);
+    expect((await order(s.accessToken)).data.order.id).toBe(again.id);
+    await db.update(supportPlans).set({ pricePaise: 9900 }).where(eq(supportPlans.code, "limited"));
   });
 });
 
