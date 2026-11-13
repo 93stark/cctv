@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, appSettings, books, learningResources, videos, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, banners, books, learningResources, videos, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -299,6 +299,19 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
         await db.update(videos).set({ thumbnailUrl: base + file }).where(and(sql`lower(${videos.title}) like ${pat}`, sql`(${videos.thumbnailUrl} is null or ${videos.thumbnailUrl} = '')`));
       }
       await db.insert(appSettings).values({ key: "video_thumbs_v1", valueJson: true }).onConflictDoNothing();
+    }
+  }
+
+  // Two CCTV training banners for the home screen (editable or removable in the admin Banners tab).
+  {
+    const m = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "training_banners_v1")).limit(1);
+    if (!m[0]) {
+      const base = (process.env.GEN_ICON_BASE_URL ?? "https://cctv-api-five.vercel.app").replace(/\/$/, "") + "/banners/";
+      await db.insert(banners).values([
+        { imageUrl: base + "training-1.jpg", title: "CCTV Training", description: "Camera, DVR/NVR aur installation, step by step", status: "published", sortOrder: 10 },
+        { imageUrl: base + "training-2.jpg", title: "Learn CCTV Secrets", description: "Connectors, SMPS aur wiring ki practical training", status: "published", sortOrder: 11 },
+      ]);
+      await db.insert(appSettings).values({ key: "training_banners_v1", valueJson: true }).onConflictDoNothing();
     }
   }
 
