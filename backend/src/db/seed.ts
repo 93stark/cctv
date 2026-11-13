@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, appSettings, books, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, books, learningResources, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -269,6 +269,23 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
     if (!gm[0]) {
       if (!(await getGatewayConfig(db)).gateway) await saveGatewayConfig(db, null, { gateway: "razorpay" });
       await db.insert(appSettings).values({ key: "gateway_default_v1", valueJson: true }).onConflictDoNothing();
+    }
+  }
+
+  // Three starter PDFs (served from /public/guides), in reading order. After this the owner can edit or reorder them in the admin.
+  {
+    const m = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "guides_pdfs_v1")).limit(1);
+    if (!m[0]) {
+      const base = (process.env.GEN_ICON_BASE_URL ?? "https://cctv-api-five.vercel.app").replace(/\/$/, "") + "/guides/";
+      const docs = [
+        ["CCTV Secret & Entrepreneurship: Book Introduction", "Free introductory edition: about the book, author note and the full 10-chapter contents.", "1-book-introduction.pdf"],
+        ["Chapters 1 & 2: Illustrated Technical Summary", "CCTV foundations, camera types, connectors, power supplies and field tools.", "2-chapters-1-and-2-summary.pdf"],
+        ["CCTV Business: Quotation & Invoice Templates", "Ready-to-use quotation and invoice formats for your CCTV installation business.", "3-quotation-and-invoice-templates.pdf"],
+      ] as const;
+      for (let i = 0; i < docs.length; i++) {
+        await db.insert(learningResources).values({ type: "pdf", title: docs[i][0], summary: docs[i][1], fileUrl: base + docs[i][2], isFree: true, status: "published", sortOrder: i + 1 });
+      }
+      await db.insert(appSettings).values({ key: "guides_pdfs_v1", valueJson: true }).onConflictDoNothing();
     }
   }
 
