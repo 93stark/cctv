@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { adminPermissions, adminRoles, adminUsers, appSettings, books, learningResources, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
+import { adminPermissions, adminRoles, adminUsers, appSettings, books, learningResources, videos, quoteItems, quotePackages, quoteVariants, supportPlans } from "./schema";
 import { hashPassword } from "@/server/crypto";
 import { validateNewPassword } from "@/server/adminAuth";
 import { ROLES } from "@/server/permissions";
@@ -286,6 +286,19 @@ export async function seed(db: Db, opts: { adminEmail?: string; adminPassword?: 
         await db.insert(learningResources).values({ type: "pdf", title: docs[i][0], summary: docs[i][1], fileUrl: base + docs[i][2], isFree: true, status: "published", sortOrder: i + 1 });
       }
       await db.insert(appSettings).values({ key: "guides_pdfs_v1", valueJson: true }).onConflictDoNothing();
+    }
+  }
+
+  // Attractive thumbnails for the four starter videos (matched by title; a thumbnail the admin already set is kept).
+  {
+    const m = await db.select({ key: appSettings.key }).from(appSettings).where(eq(appSettings.key, "video_thumbs_v1")).limit(1);
+    if (!m[0]) {
+      const base = (process.env.GEN_ICON_BASE_URL ?? "https://cctv-api-five.vercel.app").replace(/\/$/, "") + "/video-thumbs/";
+      const rules: [string, string][] = [["%camera training%", "cctv-training.jpg"], ["%smps%", "smps.jpg"], ["%dc conn%", "dc-connector.jpg"], ["%bnc%", "bnc-connector.jpg"]];
+      for (const [pat, file] of rules) {
+        await db.update(videos).set({ thumbnailUrl: base + file }).where(and(sql`lower(${videos.title}) like ${pat}`, sql`(${videos.thumbnailUrl} is null or ${videos.thumbnailUrl} = '')`));
+      }
+      await db.insert(appSettings).values({ key: "video_thumbs_v1", valueJson: true }).onConflictDoNothing();
     }
   }
 
