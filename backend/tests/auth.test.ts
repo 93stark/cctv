@@ -108,3 +108,21 @@ describe("demo OTP safety", () => {
     expect(loadConfig({ ...base, ALLOW_DEMO_OTP: "true" }).MOCK_OTP_CODE).toBe("8899");
   });
 });
+
+describe("temporary review login", () => {
+  it("signs the test number in with its fixed code without sending an SMS, and leaves other numbers alone", async () => {
+    const { setOtpProviderForTests } = await import("@/server/otp/provider");
+    const sent: string[] = [];
+    setOtpProviderForTests({ isMock: false, send: async (m: string) => void sent.push(m) });
+    try {
+      expect((await call(reqOtp, req("POST", "/x", { body: { mobile: "+916000000000" }, headers: { "x-real-ip": "9.9.9.7" } }))).status).toBe(200);
+      expect(sent).toHaveLength(0);
+      expect((await call(verify, req("POST", "/x", { body: { mobile: "+916000000000", code: "482916" } }))).status).toBe(200);
+      await call(reqOtp, req("POST", "/x", { body: { mobile: "+919000000077" }, headers: { "x-real-ip": "9.9.9.8" } }));
+      expect(sent).toEqual(["+919000000077"]);
+      expect((await call(verify, req("POST", "/x", { body: { mobile: "+919000000077", code: "482916" } }))).status).toBe(400);
+    } finally {
+      setOtpProviderForTests(null);
+    }
+  });
+});

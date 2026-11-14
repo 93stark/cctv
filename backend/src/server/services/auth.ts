@@ -29,13 +29,26 @@ function hashOtp(mobile: string, code: string): string {
   return hmacHex(config().OTP_SECRET, `${mobile}:${code}`);
 }
 
+/**
+ * TEMPORARY app-store review login (remove once the store approves the app). The store reviewers cannot receive an SMS,
+ * so this one throwaway test number signs in with a fixed code. No SMS is sent for it and nothing is stored for it in
+ * the database settings. It is an ordinary user account with no special rights. Setting the server environment
+ * variable REVIEW_LOGIN_DISABLED=true switches it off without a code change.
+ */
+const REVIEW_MOBILE = "+916000000000";
+const REVIEW_CODE = "482916";
+function isReviewLogin(mobile: string): boolean {
+  return mobile === REVIEW_MOBILE && process.env.REVIEW_LOGIN_DISABLED !== "true";
+}
+
 export async function requestOtp(db: Db, rawMobile: string, ip: string): Promise<{ expiresInSeconds: number }> {
   const mobile = normalizeMobile(rawMobile);
   await rateLimit(db, `otp:req:mobile:${mobile}`, 3, 10 * 60);
   await rateLimit(db, `otp:req:ip:${ip}`, 20, 10 * 60);
 
-  const provider = resolveOtpProvider();
-  const code = provider.isMock ? config().MOCK_OTP_CODE : randomDigits(6);
+  const review = isReviewLogin(mobile);
+  const provider = review ? null : resolveOtpProvider();
+  const code = review ? REVIEW_CODE : provider!.isMock ? config().MOCK_OTP_CODE : randomDigits(6);
 
   const existing = await db.select({ status: users.status }).from(users).where(eq(users.mobileE164, mobile)).limit(1);
   if (existing[0]?.status === "blocked") {
@@ -48,7 +61,7 @@ export async function requestOtp(db: Db, rawMobile: string, ip: string): Promise
     expiresAt: new Date(Date.now() + OTP_TTL_SECONDS * 1000),
     ip,
   });
-  await provider.send(mobile, code);
+  if (provider) await provider.send(mobile, code);
   return { expiresInSeconds: OTP_TTL_SECONDS };
 }
 
