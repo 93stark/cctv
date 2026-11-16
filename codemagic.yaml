@@ -15,6 +15,7 @@ workflows:
       flutter: stable
       groups:
         - cctv_build
+        - cctv_android
     triggering:
       events: [push, pull_request]
       branch_patterns:
@@ -33,6 +34,8 @@ workflows:
       # Signed with the debug key here, so it installs for testing; the Play Store build uses the real upload key (android-release).
       - name: Build release APKs (split per ABI)
         script: flutter build apk --release --split-per-abi --build-name=1.0.1 --build-number="$((BUILD_NUMBER))" --dart-define=API_BASE_URL="$API_BASE_URL" --dart-define=PRIVACY_URL="$PRIVACY_URL" --dart-define=TERMS_URL="$TERMS_URL"
+      - name: Sign APKs with the permanent release key
+        script: bash scripts/sign_apks.sh
     artifacts:
       # Listed three ways because the base directory for patterns differs when working_directory is set.
       - $CM_BUILD_DIR/mobile_app/build/app/outputs/flutter-apk/*.apk
