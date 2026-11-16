@@ -114,6 +114,10 @@ export async function getSetting<K extends SettingKey>(db: Db, key: K): Promise<
 
 export async function getPublicConfig(db: Db) {
   const values = await getSettings(db, PUBLIC_KEYS);
+  // The in-app policy screen always tells the user where the full, public policy lives.
+  const policyUrl = "https://cctv-api-five.vercel.app/privacy";
+  const pp = String(values.privacy_policy_text ?? "");
+  if (!pp.includes(policyUrl)) values.privacy_policy_text = `${pp}\n\nFull privacy policy: ${policyUrl}\nAccount deletion: https://cctv-api-five.vercel.app/account-deletion`.trim();
   const versions = await db.select({ v: appSettings.version, k: appSettings.key }).from(appSettings);
   return { settings: values, version: versions.reduce((n, r) => n + r.v, 0) };
 }
